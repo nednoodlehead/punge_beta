@@ -3,7 +3,7 @@ from tkinter import *
 import tkinter as tk
 import os
 import sqlite3
-from PIL import Image, ImageTk
+#from PIL import Image, ImageTk
 import os.path
 import urllib.request
 import db
