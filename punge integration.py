@@ -67,6 +67,50 @@ class Main_page(tk.Frame):
         test1.heading('Album', text='Album', anchor=CENTER)
         test1.pack(expand=True, ipady="75") #TODO does not want to change to place. eventually move to bottom right,many more displayed at once
         #Needs to be here cause of reefernce b4 all other functions
+
+
+        def create_new_table():
+            popup_rename_window = Toplevel(self)
+            popup_rename_window.geometry("250x250+125+235")
+            popup_rename_window.title("Rename :D")
+            new_playlist_name = StringVar()
+            playlist_entry = Entry(popup_rename_window, textvariable=new_playlist_name)
+            playlist_entry.place(relx=.5, rely=.75)
+            playlist_create = Button(popup_rename_window, text="Create!!", command=lambda: create_playlist_combine(playlist_entry.get()))
+            playlist_create.place(rely=.5, relx=.5)
+
+            def create_playlist_combine(play_enter):
+                table_backend(play_enter)
+                destroy_popup("none lol")
+            def destroy_popup(event):
+                popup_rename_window.destroy()
+                popup_rename_window.update()
+
+
+
+            def table_backend(playlist_entry_got):
+                con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
+                cur1 = con1.cursor()
+                cur1.execute("CREATE TABLE IF NOT EXISTS Playlist" +playlist_entry_got+ " (Title TEXT, Author TEXT,Album TEXT,Savelocation TEXT,SavelocationThumb TEXT,Uniqueid TEXT NOT NULL PRIMARY KEY)")
+                con1.commit()
+
+
+#TODO reformat all (query) things to look for <tkinter selected table> in database -> ./all_playlists.sqlite.
+#TODO also need create_all_playlists to run only one time, or a "run if: not exists clause
+#TODO primary key should be title. the <play> functions should also inherit from selected playlist.
+        def get_playlists_all():
+            con1 = sqlite3.connect("./all_playlists.sqlite")
+            cur1 = con1.cursor()
+            cur1.execute("SELECT Author, Title, Album, Savelocation, SavelocationThumb, Uniqueid FROM main")
+            rows = cur1.fetchall()
+            for row in rows:
+                test1.insert('', tk.END, values=row)
+            con1.close()
+
+
+
+
+
         def refresh_query():
             un_query_all()
             query_all()
@@ -83,6 +127,8 @@ class Main_page(tk.Frame):
         button_refresh = Button(self, text='Refresh', command=refresh_query)
         button_refresh.place(x=585,y=10)
         button_mp4.place(x=0, y=225)
+        button_make_main_table = Button(self, text="TRY NEW PLAYLIST", command=create_new_table)
+        button_make_main_table.place(relx=.5, rely=.6)
 
         def query_all():
             con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
@@ -115,8 +161,6 @@ class Main_page(tk.Frame):
             connect1.commit()
             concur2.close()
 
-        def bind_test(event):
-            print("Worked?")
 
         def popup_event(event):
             try:
@@ -126,8 +170,6 @@ class Main_page(tk.Frame):
 
         def popup_add_playlist():
             print("POPUP ADD PLAYLIST")
-#TODO create second option for multiple album/artist rename. accounts for mis-creation in original download
-#TODO this should only include album / artist field. No reason to change all 'titles'. why want to??
         def popup_rename(event):
             popup_rename_window = Toplevel(self)
             popup_rename_window.geometry("250x250+125+235") #TODO styling to not look dogshit lol
@@ -252,7 +294,7 @@ class Main_page(tk.Frame):
         song_menu.add_command(label="Rename Multiple", command=lambda: popup_rename_multiple("x"))
         test1.bind("<Button-3>", popup_event)
         test1.bind("<Delete>", lambda e: delete_multiple())
-        self.bind("<Return>", bind_test)
+        #self.bind("<Return>", bind_test)
         #self.entry1.delete(0, 'end)
         query_all()
 
@@ -359,7 +401,6 @@ class Download(tk.Frame):
         ytlink_entry.pack()
         download_button.pack()
         ytlink_entry.bind("<Return>", ytlink_box_get_thread)
-        #     https://www.youtube.com/watch?v=RpWiicPTnCo
 
 
 
@@ -384,8 +425,7 @@ class Download(tk.Frame):
             for video_main in video1.videos:
                 downloadname = playlist_mp3_fix(video_main.author, video_main.title, video_main.video_id)
                 video_sep2 = video_main.streams.get_audio_only()
-                x = False
-                if x is True:  # os.path.exists(download_path_ext) is True:
+                if os.path.exists(downloadname) is True:
                     print("File already downloaded(playlist). Try something new.")
                 else:
                     bruh = video_sep2.download(output_path=elite_fileloc)
@@ -639,7 +679,7 @@ class music_player:
 
     def query_list(self):
         big_ol_list = []
-        con1 = sqlite3.connect("C:/Users/Spencer/AppData/Roaming/JetBrains/PyCharmCE2022.1/scratches/MAINPLAYLIST.sqlite")
+        con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
         cur1 = con1.cursor()
         cur1.execute("SELECT Title, Author, Album, SavelocationThumb, Savelocation, Uniqueid FROM main")
         rows = cur1.fetchall()
@@ -724,6 +764,8 @@ class music_player:
     def skip_forward(self):
         print(f' current1: {self.current_playing1}')
         print(f' current2: {self.current_playing2}')
+        #Kill thread 1 & 2
+        #mainmusic entry with new numbers
 
 
     def skip_backwards(self):
