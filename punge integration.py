@@ -7,11 +7,14 @@ import sqlite3
 import os.path
 import urllib.request
 import db
+import time
 import sqlalchemy.exc
 from pytube import YouTube, Playlist
 from sqlalchemy.orm import sessionmaker
 import threading
+import pydub
 from pydub import AudioSegment
+import simpleaudio as sa
 from pydub.playback import play
 from pathlib import Path
 import random
@@ -91,7 +94,7 @@ class Main_page(tk.Frame):
             def table_backend(playlist_entry_got):
                 con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
                 cur1 = con1.cursor()
-                cur1.execute("CREATE TABLE IF NOT EXISTS Playlist" +playlist_entry_got+ " (Title TEXT, Author TEXT,Album TEXT,Savelocation TEXT,SavelocationThumb TEXT,Uniqueid TEXT NOT NULL PRIMARY KEY)")
+                cur1.execute("CREATE TABLE IF NOT EXISTS " +playlist_entry_got+ " (Title TEXT, Author TEXT,Savelocation TEXT,SavelocationThumb TEXT,Album TEXT, Uniqueid TEXT NOT NULL PRIMARY KEY)")
                 con1.commit()
 
 
@@ -124,28 +127,16 @@ class Main_page(tk.Frame):
             cur1.execute("SELECT name FROM sqlite_master WHERE type='table';")
             rows = cur1.fetchall()
             for row in rows:
-                print(row[0])
-                if "Playlist" in row[0]:
-                    xrow = row[0]
-                    xrow = xrow[8:]
-                    test1.insert('', tk.END, values=xrow)
-                else:
-                    test1.insert('', tk.END, values=row)
+              test1.insert('', tk.END, values=row) #fixed
             con1.close()
 
         def un_query_all():
             test1.delete(*test1.get_children())
 
 
-        def delete_multiple(): #Deleting should exist in a 'deleting mode', should change the background color of TREEVIEW
-            selection_items = test1.selection()
-            for item in selection_items:
-                multiple_id = (test1.item(item)['values'])
-                remove_id = multiple_id[5]
-                delete_from_db(remove_id, multiple_id[1])
-                test1.delete(item)
-                os.remove(multiple_id[3])
-                os.remove(multiple_id[4])
+        def change_options(): #Deleting should exist in a 'deleting mode', should change the background color of TREEVIEW
+            selection_playlist = test1.selection()
+            print(selection_playlist)
 
         def delete_from_db(id, song_named):
             connect1 = sqlite3.connect('MAINPLAYLIST.sqlite')
@@ -284,10 +275,10 @@ class Main_page(tk.Frame):
         song_menu = Menu(test1, tearoff=0)
         song_menu.add_command(label="Add To:", command=popup_add_playlist)
         song_menu.add_command(label="Rename", command=lambda: popup_rename("x"))
-        song_menu.add_command(label="Delete", command=delete_multiple)
+        song_menu.add_command(label="Edit Name", command=change_options)
         song_menu.add_command(label="Rename Multiple", command=lambda: popup_rename_multiple("x"))
         test1.bind("<Button-3>", popup_event)
-        test1.bind("<Delete>", lambda e: delete_multiple())
+        test1.bind("<Delete>", lambda e: change_options)
         #self.bind("<Return>", bind_test)
         #self.entry1.delete(0, 'end)
         query_all()
@@ -339,6 +330,9 @@ class Currently_playing(tk.Frame):
 
         slider = ttk.Scale(self, from_=0.01, to=0.2, orient="horizontal", command=volume_slider_controller)
         slider.place(rely=.5, relx=.5)
+
+        mute_button = ttk.Button(self, text="mute", command=volume_mute)
+        mute_button.place(rely=.5, relx=.65)
 
         skip_button = ttk.Button(self, text="Skip LOL", command=instance_of_music.skip_forward)
         skip_button.place(rely=.3, relx=.5)
@@ -697,7 +691,14 @@ class music_player:
         return songpt1, songpt2, songpt3
 
     def pydub_playsong(self, song_to_play):
-        play(song_to_play)
+        print(song_to_play.duration_seconds)
+        #time.sleep(timeism_1)
+        #play(song_to_play)
+
+        #time.sleep(len(song_to_play))
+        pydub.playback._play_with_simpleaudio(song_to_play)
+        time.sleep(song_to_play.duration_seconds)
+        print("done playing rn")
 
 
     def main_music_loop(self, song_list, thread_one, song_one):
@@ -739,22 +740,24 @@ class music_player:
          #- should crossfade into song 3...?
     def main_music_loop_entry(self, song_list):
         entry_song = self.initialized_song(song_list[0])
-        play(entry_song[0])
+        begin_thr = threading.Thread(target=self.pydub_playsong, args=(entry_song[0],))
+        begin_thr.start()
         print("initialize song 2")
         entry_song_MT = threading.Thread(target=self.pydub_playsong, args=(entry_song[1],))
+        begin_thr.join()
         entry_song_MT.start()
         song_one = self.initialized_song(song_list[1])
         entry_crossfade = entry_song[2].append(song_one[0], crossfade=crossfade_ms)
         thread_one = threading.Thread(target=self.pydub_playsong, args=(song_one[1],))
         entry_song_MT.join()
-        play(entry_crossfade)
+        ent_crsfade = threading.Thread(target=self.pydub_playsong, args=(entry_crossfade,))
+        ent_crsfade.start()
         print("entering loop")
+        ent_crsfade.join()
         self.main_music_loop(song_list, thread_one, song_one)
 
     def pause(self): #dont work
-        print("Pause clicked")
-        global inner_playing_loop
-        inner_playing_loop = False
+        pass
 
 
     def skip_forward(self):
@@ -903,6 +906,7 @@ class active_playlist(tk.Frame):
                 connect1.commit()
                 connect1.close()
 
+
             popup_rename_window.bind("<Return>", rename_destroy_combine)
             # TODO 132 does not fetch requested ID of <selected> item. make it.
 
@@ -956,7 +960,7 @@ class active_playlist(tk.Frame):
                 retain_download_mp3 = passed_in_song[3]
                 retain_song_id = passed_in_song[5]
                 concur2.execute(
-                    "UPDATE main SET Author=?, Title=?, Album=? , Savelocation=?, SavelocationThumb=? WHERE Uniqueid=?",
+                    "UPDATE main SET Author=?, Title=?, Album=? , Savelocation=?, SavelocationThumb=? WHERE Uniqueid=?",  #I would want to say that this doesnt reapply 'Uniqueid' but idk
                     (update_author, retain_title, update_album, retain_download_mp3, retain_download_jpg, retain_song_id,))
 
                 connect1.commit()
@@ -997,11 +1001,21 @@ class AudioController:
                 self.volume = min(1.0, max(0.0, decibels))
                 interface.SetMasterVolume(self.volume, None)
                 #print("Volume set to", self.volume)  # debug
-
+    def mute_volume(self, decibels):
+        sessions = AudioUtilities.GetAllSessions()
+        for session in sessions:
+            interface = session.SimpleAudioVolume
+            if session.Process and session.Process.name() == self.process_name:
+                self.volume = 0
+                interface.SetMasterVolume(self.volume, None)
 def volume_slider_controller(event):
     audio_controller = AudioController("python.exe") #will need to be punge.exe
     audio_controller.set_volume(float(event))
-
+    audio_controller.process_volume()
+def volume_mute():
+    audio_control = AudioController("python.exe")
+    audio_control.set_volume(0)
+    audio_control.process_volume()
 
 
 
