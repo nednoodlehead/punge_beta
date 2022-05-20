@@ -322,7 +322,7 @@ class Currently_playing(tk.Frame):
             import_funnies = instance_of_music.query_list()
             random.shuffle(import_funnies)
             instance_of_music.main_music_loop_entry(import_funnies)
-        play_button = ttk.Button(self, text="Play", command=play_music_multithread)
+        play_button = ttk.Button(self, text="Play", command=play_music_multithread) #added args of selected playlist
         play_button.place(relx=.5, rely=.8)
 
         pause_button = ttk.Button(self, text="Pause bruh", command=instance_of_music.pause)
@@ -696,10 +696,9 @@ class music_player:
 
     def pydub_playsong(self, song_to_play):
         print(song_to_play.duration_seconds) #if was paused do self.playback = sleeptimer - pause_adjusttimer (paused now = true). else normal
-        self.sleeptimer = song_to_play.duration_seconds - .25
-
+        self.sleeptimer = song_to_play.duration_seconds - .25 #TODO change to less i think
         self.playback = pydub.playback._play_with_simpleaudio(song_to_play)
-        time.sleep(self.sleeptimer) #does .25 change the game?
+        time.sleep(self.sleeptimer) #TODO check if not playing then close thread? Threads linger after app closes..
 
         print("done playing rn")
 
@@ -759,7 +758,7 @@ class music_player:
         ent_crsfade.join()
         self.main_music_loop(song_list, thread_one, song_one)
 
-    def pause(self): #dont work
+    def pause(self): #TODO this should also begin to kill the threads before they keep going. Essentially, music loop needs to have a check ccondition for if/when
         print("clicked pause")
         self.playback.stop()
 
