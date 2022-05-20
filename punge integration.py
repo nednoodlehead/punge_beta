@@ -7,11 +7,14 @@ import sqlite3
 import os.path
 import urllib.request
 import db
+import time
 import sqlalchemy.exc
 from pytube import YouTube, Playlist
 from sqlalchemy.orm import sessionmaker
 import threading
+import pydub
 from pydub import AudioSegment
+import simpleaudio as sa
 from pydub.playback import play
 from pathlib import Path
 import random
@@ -30,7 +33,7 @@ class tkinter_main(tk.Tk):
         main_page_frame.grid_rowconfigure(0, weight=1)
         main_page_frame.grid_columnconfigure(0, weight=1)
         self.frames = {}
-        for each_frame in (Main_page, Currently_playing, Settings, Download, mp4_downloader):
+        for each_frame in (Main_page, Currently_playing, Settings, Download, mp4_downloader, active_playlist):
             frame = each_frame(main_page_frame, self)
             self.frames[each_frame] = frame
             frame.grid(row=0, column=0, sticky="nsew")
@@ -50,22 +53,22 @@ class Main_page(tk.Frame):
 
         style = ttk.Style()
         style.configure("mystyle.Treeview", font=('Calibri', 11), foreground='white', background='#262626')
-        style.configure("mystyle.Treeview.Heading",font=('Times New Roman', 15), foreground='#262626', bg='blue')
+        style.configure("mystyle.Treeview.Heading", font=('Times New Roman', 15), foreground='#262626', bg='blue')
         style.layout("mystyle.Treeview", [('mystyle.Treeview.treearea', {'sticky': 'nswe'})])
         test1 = ttk.Treeview(playlist_frame, yscrollcommand=playlist_scroll.set, xscrollcommand=playlist_scroll.set, style="mystyle.Treeview")
         style.map('Treeview', background=[('selected', '#3f5e91')])
         playlist_scroll.config(command=test1.yview)  # ability to scroll down
 
-        test1['columns'] = ('Artist', 'Song', 'Album')
+        test1['columns'] = ('Image', 'Title', 'Description')
         test1.column("#0", width=0, stretch=NO)
-        test1.column('Artist', anchor=CENTER, width=150)
-        test1.column('Song', anchor=CENTER, width=250)
-        test1.column('Album', anchor=CENTER, width=140)
+        test1.column('Image', anchor=CENTER, width=100)
+        test1.column('Title', anchor=CENTER, width=225)
+        test1.column('Description', anchor=CENTER, width=250)
         test1.heading("#0", text='', anchor=CENTER)
-        test1.heading('Artist', text="Artist", anchor=CENTER)
-        test1.heading('Song', text="Song", anchor=CENTER)
-        test1.heading('Album', text='Album', anchor=CENTER)
-        test1.pack(expand=True, ipady="75") #TODO does not want to change to place. eventually move to bottom right,many more displayed at once
+        test1.heading('Image', text="Image", anchor=CENTER) #Remove this & 2 below after. exists for debugging purposes
+        test1.heading('Title', text="Title", anchor=CENTER)
+        test1.heading('Description', text='Description', anchor=CENTER)
+        test1.pack(expand=True, ipady="75")
         #Needs to be here cause of reefernce b4 all other functions
 
 
@@ -91,25 +94,13 @@ class Main_page(tk.Frame):
             def table_backend(playlist_entry_got):
                 con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
                 cur1 = con1.cursor()
-                cur1.execute("CREATE TABLE IF NOT EXISTS Playlist" +playlist_entry_got+ " (Title TEXT, Author TEXT,Album TEXT,Savelocation TEXT,SavelocationThumb TEXT,Uniqueid TEXT NOT NULL PRIMARY KEY)")
+                cur1.execute("CREATE TABLE IF NOT EXISTS " +playlist_entry_got+ " (Title TEXT, Author TEXT,Savelocation TEXT,SavelocationThumb TEXT,Album TEXT, Uniqueid TEXT NOT NULL PRIMARY KEY)")
                 con1.commit()
 
 
 #TODO reformat all (query) things to look for <tkinter selected table> in database -> ./all_playlists.sqlite.
 #TODO also need create_all_playlists to run only one time, or a "run if: not exists clause
 #TODO primary key should be title. the <play> functions should also inherit from selected playlist.
-        def get_playlists_all():
-            con1 = sqlite3.connect("./all_playlists.sqlite")
-            cur1 = con1.cursor()
-            cur1.execute("SELECT Author, Title, Album, Savelocation, SavelocationThumb, Uniqueid FROM main")
-            rows = cur1.fetchall()
-            for row in rows:
-                test1.insert('', tk.END, values=row)
-            con1.close()
-
-
-
-
 
         def refresh_query():
             un_query_all()
@@ -133,25 +124,19 @@ class Main_page(tk.Frame):
         def query_all():
             con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
             cur1 = con1.cursor()
-            cur1.execute("SELECT Author, Title, Album, Savelocation, SavelocationThumb, Uniqueid FROM main")
+            cur1.execute("SELECT name FROM sqlite_master WHERE type='table';")
             rows = cur1.fetchall()
             for row in rows:
-                test1.insert('', tk.END, values=row)
+                test1.insert('', tk.END, values=row) #fixed
             con1.close()
 
         def un_query_all():
             test1.delete(*test1.get_children())
 
 
-        def delete_multiple(): #Deleting should exist in a 'deleting mode', should change the background color of TREEVIEW
-            selection_items = test1.selection()
-            for item in selection_items:
-                multiple_id = (test1.item(item)['values'])
-                remove_id = multiple_id[5]
-                delete_from_db(remove_id, multiple_id[1])
-                test1.delete(item)
-                os.remove(multiple_id[3])
-                os.remove(multiple_id[4])
+        def change_options(): #Deleting should exist in a 'deleting mode', should change the background color of TREEVIEW
+            selection_playlist = test1.selection()
+            print(selection_playlist)
 
         def delete_from_db(id, song_named):
             connect1 = sqlite3.connect('MAINPLAYLIST.sqlite')
@@ -290,10 +275,10 @@ class Main_page(tk.Frame):
         song_menu = Menu(test1, tearoff=0)
         song_menu.add_command(label="Add To:", command=popup_add_playlist)
         song_menu.add_command(label="Rename", command=lambda: popup_rename("x"))
-        song_menu.add_command(label="Delete", command=delete_multiple)
+        song_menu.add_command(label="Edit Name", command=change_options)
         song_menu.add_command(label="Rename Multiple", command=lambda: popup_rename_multiple("x"))
         test1.bind("<Button-3>", popup_event)
-        test1.bind("<Delete>", lambda e: delete_multiple())
+        test1.bind("<Delete>", lambda e: change_options)
         #self.bind("<Return>", bind_test)
         #self.entry1.delete(0, 'end)
         query_all()
@@ -312,11 +297,13 @@ class Currently_playing(tk.Frame):
         button_settings = Button(self, text="Settings", command=lambda: controller.show_frame(Settings))
         button_current = Button(self, text="Currently playing", state=DISABLED)
         button_mp4 = Button(self, text="Video downloader", command=lambda: controller.show_frame(mp4_downloader))
+        button_playlist = Button(self, text="Currently playlist", command=lambda: controller.show_frame(active_playlist))
         button_main.place(x=0, y=125)
         button_current.place(x=0, y=150)
         button_download.place(x=0, y=175)
         button_settings.place(x=0, y=200)
         button_mp4.place(x=0, y=225)
+        button_playlist.place(x=0, y=250)
         instance_of_music = music_player()
 
         #I hate images in tkinter
@@ -343,6 +330,9 @@ class Currently_playing(tk.Frame):
 
         slider = ttk.Scale(self, from_=0.01, to=0.2, orient="horizontal", command=volume_slider_controller)
         slider.place(rely=.5, relx=.5)
+
+        mute_button = ttk.Button(self, text="mute", command=volume_mute)
+        mute_button.place(rely=.5, relx=.65)
 
         skip_button = ttk.Button(self, text="Skip LOL", command=instance_of_music.skip_forward)
         skip_button.place(rely=.3, relx=.5)
@@ -701,7 +691,14 @@ class music_player:
         return songpt1, songpt2, songpt3
 
     def pydub_playsong(self, song_to_play):
-        play(song_to_play)
+        print(song_to_play.duration_seconds)
+        #time.sleep(timeism_1)
+        #play(song_to_play)
+
+        #time.sleep(len(song_to_play))
+        pydub.playback._play_with_simpleaudio(song_to_play)
+        time.sleep(song_to_play.duration_seconds)
+        print("done playing rn")
 
 
     def main_music_loop(self, song_list, thread_one, song_one):
@@ -743,22 +740,24 @@ class music_player:
          #- should crossfade into song 3...?
     def main_music_loop_entry(self, song_list):
         entry_song = self.initialized_song(song_list[0])
-        play(entry_song[0])
+        begin_thr = threading.Thread(target=self.pydub_playsong, args=(entry_song[0],))
+        begin_thr.start()
         print("initialize song 2")
         entry_song_MT = threading.Thread(target=self.pydub_playsong, args=(entry_song[1],))
+        begin_thr.join()
         entry_song_MT.start()
         song_one = self.initialized_song(song_list[1])
         entry_crossfade = entry_song[2].append(song_one[0], crossfade=crossfade_ms)
         thread_one = threading.Thread(target=self.pydub_playsong, args=(song_one[1],))
         entry_song_MT.join()
-        play(entry_crossfade)
+        ent_crsfade = threading.Thread(target=self.pydub_playsong, args=(entry_crossfade,))
+        ent_crsfade.start()
         print("entering loop")
+        ent_crsfade.join()
         self.main_music_loop(song_list, thread_one, song_one)
 
     def pause(self): #dont work
-        print("Pause clicked")
-        global inner_playing_loop
-        inner_playing_loop = False
+        pass
 
 
     def skip_forward(self):
@@ -771,7 +770,213 @@ class music_player:
     def skip_backwards(self):
         pass
 
+class active_playlist(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        self.configure(bg="#272c34")
+        button_main = Button(self, text="Main page", command=lambda: controller.show_frame(Main_page))
+        button_current = Button(self, text="Currently playing", command=lambda: controller.show_frame(Currently_playing))
+        button_download = Button(self, text="Download", command=lambda: controller.show_frame(Download))
+        button_settings = Button(self, text="Settings", command=lambda: controller.show_frame(Settings))
+        button_mp4 = Button(self, text="Video downloader", command=lambda: controller.show_frame(mp4_downloader))
+        button_main.place(x=0, y=125)
+        button_current.place(x=0, y=150)
+        button_download.place(x=0, y=175)
+        button_settings.place(x=0, y=200)
+        button_mp4.place(x=0, y=225)
 
+        playlist_frame = Frame(self)
+        playlist_frame.place(x=185, y=100)
+        playlist_scroll = Scrollbar(playlist_frame)
+        playlist_scroll.pack(side=RIGHT, fill=Y)
+
+        style = ttk.Style()
+        style.configure("mystyle.Treeview", font=('Calibri', 11), foreground='white', background='#262626')
+        style.configure("mystyle.Treeview.Heading", font=('Times New Roman', 15), foreground='#262626', bg='blue')
+        style.layout("mystyle.Treeview", [('mystyle.Treeview.treearea', {'sticky': 'nswe'})])
+        playlist_table = ttk.Treeview(playlist_frame, yscrollcommand=playlist_scroll.set, xscrollcommand=playlist_scroll.set,
+                             style="mystyle.Treeview")
+        style.map('Treeview', background=[('selected', '#3f5e91')])
+        playlist_scroll.config(command=playlist_table.yview)  # ability to scroll down
+
+        playlist_table['columns'] = ('Artist', 'Song', 'Album')
+        playlist_table.column("#0", width=0, stretch=NO)
+        playlist_table.column('Artist', anchor=CENTER, width=150)
+        playlist_table.column('Song', anchor=CENTER, width=250)
+        playlist_table.column('Album', anchor=CENTER, width=140)
+        playlist_table.heading("#0", text='', anchor=CENTER)
+        playlist_table.heading('Artist', text="Artist", anchor=CENTER)
+        playlist_table.heading('Song', text="Song", anchor=CENTER)
+        playlist_table.heading('Album', text='Album', anchor=CENTER)
+        playlist_table.pack(expand=True, ipady="75")
+
+        def query_all():
+            con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
+            cur1 = con1.cursor()
+            cur1.execute("SELECT Author, Title, Album, Savelocation, SavelocationThumb, Uniqueid FROM main") #from 'main' need to inherit from a selelection from mainpage that includes a playlistname
+            rows = cur1.fetchall()
+            for row in rows:
+                playlist_table.insert('', tk.END, values=row)
+            con1.close()
+
+        def un_query_all():
+            playlist_table.delete(*playlist_table.get_children())
+
+        def delete_multiple(): #Deleting should exist in a 'deleting mode', should change the background color of TREEVIEW
+            selection_items = playlist_table.selection()
+            for item in selection_items:
+                multiple_id = (playlist_table.item(item)['values'])
+                remove_id = multiple_id[5]
+                delete_from_db(remove_id, multiple_id[1])
+                playlist_table.delete(item)
+                os.remove(multiple_id[3])
+                os.remove(multiple_id[4])
+
+        def delete_from_db(id, song_named):
+            connect1 = sqlite3.connect('MAINPLAYLIST.sqlite')
+            concur2 = connect1.cursor()
+            print(f'deleting: {song_named}')
+            concur2.execute("DELETE FROM main WHERE Uniqueid=?", (id,))
+            connect1.commit()
+            concur2.close()
+
+
+        def popup_event(event):
+            try:
+                song_menu.tk_popup(event.x_root, event.y_root)
+            finally:
+                song_menu.grab_release()
+
+        def popup_add_playlist():
+            print("POPUP ADD PLAYLIST")
+        def popup_rename(event):
+            popup_rename_window = Toplevel(self)
+            popup_rename_window.geometry("250x250+125+235") #TODO styling to not look dogshit lol
+            popup_rename_window.title("Rename :D")
+            selected = playlist_table.focus()
+            selected_song = playlist_table.item(selected, 'values')
+            for items in selected_song:
+                print(items)
+            print(selected_song[1])
+            song_id = selected_song[5]
+
+            def destroy_popup(event):
+                popup_rename_window.destroy()
+                popup_rename_window.update()
+
+            author_rename_label = Label(popup_rename_window, text="Author").pack()
+            author_rename_entry = Entry(popup_rename_window)
+            author_rename_entry.insert(END, selected_song[0])
+            author_rename_entry.pack()
+            title_rename_label = Label(popup_rename_window, text="Title").pack()
+            title_rename_entry = Entry(popup_rename_window)
+            title_rename_entry.insert(END, selected_song[1])
+            title_rename_entry.pack()
+            album_rename_label = Label(popup_rename_window, text="Album").pack()
+            album_rename_entry = Entry(popup_rename_window)
+            album_rename_entry.insert(END, selected_song[2])
+            album_rename_entry.pack()
+
+            def rename_entry(event):
+                new_author = author_rename_entry.get()
+                new_title = title_rename_entry.get()
+                new_album = album_rename_entry.get()
+                playlist_table.item(selected, text="",
+                           values=(
+                           new_author, new_title, new_album, selected_song[3], selected_song[4], selected_song[5]))
+
+            def rename_destroy_combine(event):
+                rename_entry("event")
+                change_database_entry("event")
+                destroy_popup("event")
+
+            def change_database_entry(event):
+                connect1 = sqlite3.connect('./MAINPLAYLIST.sqlite')
+                concur2 = connect1.cursor()
+                # concur2.execute("UPDATE FROM main WHERE Uniqueid=?", (song_id,)) guess
+                update_author = author_rename_entry.get()
+                update_title = title_rename_entry.get()
+                update_album = album_rename_entry.get()
+                retain_download_jpg = selected_song[3]
+                retain_download_mp3 = selected_song[4]
+                concur2.execute(
+                    "UPDATE main SET Author=?, Title=?, Album=? , Savelocation=?, SavelocationThumb=? WHERE Uniqueid=?",
+                    (update_author, update_title, update_album, retain_download_jpg, retain_download_mp3, song_id,))
+
+                connect1.commit()
+                connect1.close()
+
+            popup_rename_window.bind("<Return>", rename_destroy_combine)
+            # TODO 132 does not fetch requested ID of <selected> item. make it.
+
+        def popup_rename_multiple(event):
+            popup_rename_multiple_window = Toplevel(self)
+            popup_rename_multiple_window.geometry("250x250+125+235")
+            popup_rename_multiple_window.title("Rename Multiple :D")
+            all_selected = playlist_table.selection()
+            for one_song in all_selected:
+                selected_song = playlist_table.item(one_song, 'values')
+                print(f'selcted: {all_selected}')
+                print(f'selected_song: {selected_song}')
+
+            def destroy_multiple_popup(event):
+                popup_rename_multiple_window.destroy()
+                popup_rename_multiple_window.update()
+                # Rename Multiple Entry
+
+            # Rename Multiple Entry
+            Label(popup_rename_multiple_window, text="Author").pack()
+            author_rename_entry = Entry(popup_rename_multiple_window)
+            author_rename_entry.pack()
+            Label(popup_rename_multiple_window, text="Album").pack()
+            album_rename_entry = Entry(popup_rename_multiple_window)
+            album_rename_entry.pack()
+            #The entry boxes should remain empty, as multiple entries could have a differnt values. so none added
+
+            def multiple_rename_entry(*event):
+                new_author = author_rename_entry.get()
+                new_album = album_rename_entry.get()
+                all_selected = playlist_table.selection()
+                for one_song in all_selected:
+                    selected_song = playlist_table.item(one_song, 'values')
+                    print(f'selcted: {all_selected}')
+                    print(f'selected_song: {selected_song}')
+                    playlist_table.item(one_song, text='', values=(new_author, selected_song[1], new_album, selected_song[3], selected_song[4], selected_song[5]))
+                    change_database_entry_multiple("event", selected_song)
+
+            def rename_multiple_destory_combine(event):
+                multiple_rename_entry("event")
+                change_database_entry_multiple("event", selected_song)  # CREATE ONE
+                destroy_multiple_popup("event")
+
+            def change_database_entry_multiple(event, passed_in_song):
+                connect1 = sqlite3.connect('./MAINPLAYLIST.sqlite')
+                concur2 = connect1.cursor()
+                update_author = author_rename_entry.get()
+                update_album = album_rename_entry.get()
+                retain_title = passed_in_song[1]
+                retain_download_jpg = passed_in_song[4]
+                retain_download_mp3 = passed_in_song[3]
+                retain_song_id = passed_in_song[5]
+                concur2.execute(
+                    "UPDATE main SET Author=?, Title=?, Album=? , Savelocation=?, SavelocationThumb=? WHERE Uniqueid=?", #I would want to say that this doesnt reapply 'Uniqueid' but idk
+                    (update_author, retain_title, update_album, retain_download_mp3, retain_download_jpg, retain_song_id,))
+
+                connect1.commit()
+                connect1.close()
+            popup_rename_multiple_window.bind("<Return>", rename_multiple_destory_combine)
+
+        song_menu = Menu(playlist_table, tearoff=0)
+        song_menu.add_command(label="Add To:", command=popup_add_playlist)
+        song_menu.add_command(label="Rename", command=lambda: popup_rename("x"))
+        song_menu.add_command(label="Delete", command=delete_multiple)
+        song_menu.add_command(label="Rename Multiple", command=lambda: popup_rename_multiple("x"))
+        playlist_table.bind("<Button-3>", popup_event)
+        playlist_table.bind("<Delete>", lambda e: delete_multiple())
+
+
+
+        query_all()
 
 class AudioController:
     def __init__(self, process_name):
@@ -795,11 +1000,21 @@ class AudioController:
                 self.volume = min(1.0, max(0.0, decibels))
                 interface.SetMasterVolume(self.volume, None)
                 #print("Volume set to", self.volume)  # debug
-
+    def mute_volume(self, decibels):
+        sessions = AudioUtilities.GetAllSessions()
+        for session in sessions:
+            interface = session.SimpleAudioVolume
+            if session.Process and session.Process.name() == self.process_name:
+                self.volume = 0
+                interface.SetMasterVolume(self.volume, None)
 def volume_slider_controller(event):
     audio_controller = AudioController("python.exe") #will need to be punge.exe
     audio_controller.set_volume(float(event))
-
+    audio_controller.process_volume()
+def volume_mute():
+    audio_control = AudioController("python.exe")
+    audio_control.set_volume(0)
+    audio_control.process_volume()
 
 
 
