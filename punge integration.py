@@ -337,6 +337,9 @@ class Currently_playing(tk.Frame):
         skip_button = ttk.Button(self, text="Skip LOL", command=instance_of_music.skip_forward)
         skip_button.place(rely=.3, relx=.5)
 
+        stop_button = ttk.Button(self, text="stop", command=instance_of_music.pause)
+        stop_button.place(rely=.65, relx=.75)
+
 class Settings(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
@@ -665,7 +668,8 @@ class import_music:
 class music_player:
     current_playing1 = 3
     current_playing2 = 2
-
+    playback = ''
+    sleeptimer = 0
 
     def query_list(self):
         big_ol_list = []
@@ -691,13 +695,12 @@ class music_player:
         return songpt1, songpt2, songpt3
 
     def pydub_playsong(self, song_to_play):
-        print(song_to_play.duration_seconds)
-        #time.sleep(timeism_1)
-        #play(song_to_play)
+        print(song_to_play.duration_seconds) #if was paused do self.playback = sleeptimer - pause_adjusttimer (paused now = true). else normal
+        self.sleeptimer = song_to_play.duration_seconds - .25
 
-        #time.sleep(len(song_to_play))
-        pydub.playback._play_with_simpleaudio(song_to_play)
-        time.sleep(song_to_play.duration_seconds)
+        self.playback = pydub.playback._play_with_simpleaudio(song_to_play)
+        time.sleep(self.sleeptimer) #does .25 change the game?
+
         print("done playing rn")
 
 
@@ -757,7 +760,8 @@ class music_player:
         self.main_music_loop(song_list, thread_one, song_one)
 
     def pause(self): #dont work
-        pass
+        print("clicked pause")
+        self.playback.stop()
 
 
     def skip_forward(self):
