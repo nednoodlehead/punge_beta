@@ -157,7 +157,7 @@ class Main_page(tk.Frame):
             print("POPUP ADD PLAYLIST")
         def popup_rename(event):
             popup_rename_window = Toplevel(self)
-            popup_rename_window.geometry("250x250+125+235") #TODO styling to not look dogshit lol
+            popup_rename_window.geometry("250x250+125+235") #TODO styling to not look terrible lol
             popup_rename_window.title("Rename :D")
             selected = test1.focus()
             selected_song = test1.item(selected, 'values')
@@ -598,7 +598,7 @@ class mp4_downloader(tk.Frame):
         def download_mp3_differ():
             pathism = desire_path.get()
             if os.path.exists(pathism) is False:
-                print("Fucking dumbass choose a proper path")
+                print("Choose a proper path lil bruh")
             else:
                 youtube_link = yt_link_stringvar.get()
                 if "list=" in youtube_link:
@@ -619,7 +619,7 @@ class mp4_downloader(tk.Frame):
             current_mp = mp3_vs_mp4.get()
             print(f'current_mp: {current_mp}')
             if current_mp == ".MP?":
-                print("stupid dumbass")
+                print("stupid head")
             elif current_mp == ".MP3":
                 download_mp3_differ()
             else:
@@ -857,7 +857,7 @@ class active_playlist(tk.Frame):
             print("POPUP ADD PLAYLIST")
         def popup_rename(event):
             popup_rename_window = Toplevel(self)
-            popup_rename_window.geometry("250x250+125+235") #TODO styling to not look dogshit lol
+            popup_rename_window.geometry("250x250+125+235") #TODO styling to not look terrible lol
             popup_rename_window.title("Rename :D")
             selected = playlist_table.focus()
             selected_song = playlist_table.item(selected, 'values')
