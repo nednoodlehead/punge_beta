@@ -127,7 +127,7 @@ class Main_page(tk.Frame):
             cur1.execute("SELECT name FROM sqlite_master WHERE type='table';")
             rows = cur1.fetchall()
             for row in rows:
-                test1.insert('', tk.END, values=row) #fixed
+              test1.insert('', tk.END, values=row) #fixed
             con1.close()
 
         def un_query_all():
@@ -906,6 +906,7 @@ class active_playlist(tk.Frame):
                 connect1.commit()
                 connect1.close()
 
+
             popup_rename_window.bind("<Return>", rename_destroy_combine)
             # TODO 132 does not fetch requested ID of <selected> item. make it.
 
@@ -959,7 +960,7 @@ class active_playlist(tk.Frame):
                 retain_download_mp3 = passed_in_song[3]
                 retain_song_id = passed_in_song[5]
                 concur2.execute(
-                    "UPDATE main SET Author=?, Title=?, Album=? , Savelocation=?, SavelocationThumb=? WHERE Uniqueid=?", #I would want to say that this doesnt reapply 'Uniqueid' but idk
+                    "UPDATE main SET Author=?, Title=?, Album=? , Savelocation=?, SavelocationThumb=? WHERE Uniqueid=?",  #I would want to say that this doesnt reapply 'Uniqueid' but idk
                     (update_author, retain_title, update_album, retain_download_mp3, retain_download_jpg, retain_song_id,))
 
                 connect1.commit()
