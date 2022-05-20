@@ -670,6 +670,7 @@ class music_player:
     current_playing2 = 2
     playback = ''
     sleeptimer = 0
+    inner_playing_loop = True
 
     def query_list(self):
         big_ol_list = []
@@ -695,18 +696,17 @@ class music_player:
         return songpt1, songpt2, songpt3
 
     def pydub_playsong(self, song_to_play):
-        print(song_to_play.duration_seconds) #if was paused do self.playback = sleeptimer - pause_adjusttimer (paused now = true). else normal
-        self.sleeptimer = song_to_play.duration_seconds - .25 #TODO change to less i think
-        self.playback = pydub.playback._play_with_simpleaudio(song_to_play)
-        time.sleep(self.sleeptimer) #TODO check if not playing then close thread? Threads linger after app closes..
-
-        print("done playing rn")
+        if self.inner_playing_loop is True:
+            print(song_to_play.duration_seconds) #if was paused do self.playback = sleeptimer - pause_adjusttimer (paused now = true). else normal
+            self.sleeptimer = song_to_play.duration_seconds - .05 #TODO change to less i think
+            self.playback = pydub.playback._play_with_simpleaudio(song_to_play)
+            time.sleep(self.sleeptimer) #TODO check if not playing then close thread? Threads linger after app closes..
+            print("done playing rn")
+            print(self.inner_playing_loop)
 
 
     def main_music_loop(self, song_list, thread_one, song_one):
-        global inner_playing_loop
-        inner_playing_loop = True
-        while inner_playing_loop is True:
+        while self.inner_playing_loop is True:
             try:
                 print("Thread begins")
                 thread_one.start()
@@ -741,25 +741,28 @@ class music_player:
                 continue
          #- should crossfade into song 3...?
     def main_music_loop_entry(self, song_list):
-        entry_song = self.initialized_song(song_list[0])
-        begin_thr = threading.Thread(target=self.pydub_playsong, args=(entry_song[0],))
-        begin_thr.start()
-        print("initialize song 2")
-        entry_song_MT = threading.Thread(target=self.pydub_playsong, args=(entry_song[1],))
-        begin_thr.join()
-        entry_song_MT.start()
-        song_one = self.initialized_song(song_list[1])
-        entry_crossfade = entry_song[2].append(song_one[0], crossfade=crossfade_ms)
-        thread_one = threading.Thread(target=self.pydub_playsong, args=(song_one[1],))
-        entry_song_MT.join()
-        ent_crsfade = threading.Thread(target=self.pydub_playsong, args=(entry_crossfade,))
-        ent_crsfade.start()
-        print("entering loop")
-        ent_crsfade.join()
-        self.main_music_loop(song_list, thread_one, song_one)
+        self.inner_playing_loop = True
+        while self.inner_playing_loop is True:
+            entry_song = self.initialized_song(song_list[0])
+            begin_thr = threading.Thread(target=self.pydub_playsong, args=(entry_song[0],))
+            begin_thr.start()
+            print("initialize song 2")
+            entry_song_MT = threading.Thread(target=self.pydub_playsong, args=(entry_song[1],))
+            begin_thr.join()
+            entry_song_MT.start()
+            song_one = self.initialized_song(song_list[1])
+            entry_crossfade = entry_song[2].append(song_one[0], crossfade=crossfade_ms)
+            thread_one = threading.Thread(target=self.pydub_playsong, args=(song_one[1],))
+            entry_song_MT.join()
+            ent_crsfade = threading.Thread(target=self.pydub_playsong, args=(entry_crossfade,))
+            ent_crsfade.start()
+            print("entering loop")
+            ent_crsfade.join()
+            self.main_music_loop(song_list, thread_one, song_one)
 
     def pause(self): #TODO this should also begin to kill the threads before they keep going. Essentially, music loop needs to have a check ccondition for if/when
         print("clicked pause")
+        self.inner_playing_loop = False
         self.playback.stop()
 
 
