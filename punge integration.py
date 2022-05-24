@@ -50,6 +50,7 @@ class Main_page(tk.Frame):
         playlist_frame.place(x=185, y=100)
         playlist_scroll = Scrollbar(playlist_frame)
         playlist_scroll.pack(side=RIGHT, fill=Y)
+        main_page_instance = music_player()
 
         style = ttk.Style()
         style.configure("mystyle.Treeview", font=('Calibri', 11), foreground='white', background='#262626')
@@ -220,13 +221,33 @@ class Main_page(tk.Frame):
             album_rename_entry.pack()
             #The entry boxes should remain empty, as multiple entries could have a differnt values. so none added
 
-        def play_playlist(xi_jin):
+        def main_page_music_multithread(playlist):
+            main_page_instance.inner_playing_loop = True
+            print(f'playlist?: {playlist}')
+            thren = threading.Thread(target=playmusic, args=playlist)
+            thren.start()
+
+        def playmusic(playlist):
+            main_page_playlist = main_page_instance.query_list(playlist)
+            random.shuffle(main_page_playlist)
+            main_page_instance.main_music_loop_entry(main_page_playlist)
+
+        def play_playlist(xia):
             certain_playlist = test1.selection()
             for item in certain_playlist:
                 selected_playlist = test1.item(item, 'value')
-                print(selected_playlist)
+                print(f'selected_playlist: {selected_playlist}')
+                print(f'item: {item}')
+                print(f'certain_playlist: {certain_playlist}')
+                main_page_music_multithread(selected_playlist)
+                controller.show_frame(Currently_playing)
+
+
+
                 #instance of music(begin_loop)
 
+        button_current = Button(self, text="Currently playing",
+                                command=lambda: controller.show_frame(Currently_playing))
 
         song_menu = Menu(test1, tearoff=0)
         song_menu.add_command(label="Play", command=lambda: play_playlist("y"))
@@ -279,6 +300,7 @@ class Currently_playing(tk.Frame):
             import_funnies = instance_of_music.query_list(playlist_of_choice)
             random.shuffle(import_funnies)
             instance_of_music.main_music_loop_entry(import_funnies)
+
         play_button = ttk.Button(self, text="Play", command=play_music_multithread) #added args of selected playlist
         play_button.place(relx=.5, rely=.8)
 
@@ -634,8 +656,12 @@ class music_player:
     def query_list(self, list_of_choice):
         big_ol_list = []
         con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
-        cur1 = con1.cursor()
-        cur1.execute("SELECT Title, Author, Album, SavelocationThumb, Savelocation, Uniqueid WHERE type='table' and name = ?", list_of_choice)
+        cur1 = con1.cursor() #TODO NOT WORKING WHY?
+        print(list_of_choice)
+        mex = cur1.execute("SELECT Title, Author, Album, SavelocationThumb, Savelocation, Uniqueid FROM {}".format(list_of_choice))
+        print(mex.description)
+        #cur1.execute("SELECT Title, Author, Album, SavelocationThumb, Savelocation, Uniqueid WHERE type='table' and name = ?", list_of_choice)
+        #cur1.execute("SELECT Title, Author, Album, SavelocationThumb, Savelocation, Uniqueid WHERE  name = ?", list_of_choice)
         rows = cur1.fetchall()
         for each in rows:
             imported_music = import_music(*each)
