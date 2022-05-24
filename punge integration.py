@@ -315,6 +315,7 @@ class Currently_playing(tk.Frame):
 
 
         def play_music_multithread():
+            music_player.inner_playing_loop = True
             music_thread = threading.Thread(target=play_music)
             music_thread.start()
 
@@ -577,6 +578,7 @@ class mp4_downloader(tk.Frame):
         def download_mp3_single(youtube_link, pathism):
             video1 = YouTube(youtube_link)
             video_main = video1.streams.get_audio_only()
+            print(video_main.title)
             bruh_change = video_main.download(output_path=pathism)
             pre, ext = os.path.splitext(bruh_change)
             os.rename(bruh_change, pre + ".mp3")
@@ -590,6 +592,7 @@ class mp4_downloader(tk.Frame):
         def download_mp4_single(youtube_link, pathism):
             video1 = YouTube(youtube_link)
             vid_download = video1.streams.get_highest_resolution()
+            print(vid_download.title)
             vid_download.download(output_path=pathism)
 
 
@@ -698,8 +701,8 @@ class music_player:
     def pydub_playsong(self, song_to_play):
         if self.inner_playing_loop is True:
             print(song_to_play.duration_seconds) #if was paused do self.playback = sleeptimer - pause_adjusttimer (paused now = true). else normal
-            self.sleeptimer = song_to_play.duration_seconds - .05 #TODO change to less i think
-            self.playback = pydub.playback._play_with_simpleaudio(song_to_play)
+            self.sleeptimer = song_to_play.duration_seconds - .2 #TODO change to less i think
+            self.playback = pydub.playback._play_with_simpleaudio(song_to_play) #should probably be a loop of 1 second incremnt down with total amount
             time.sleep(self.sleeptimer) #TODO check if not playing then close thread? Threads linger after app closes..
             print("done playing rn")
             print(self.inner_playing_loop)
@@ -741,7 +744,6 @@ class music_player:
                 continue
          #- should crossfade into song 3...?
     def main_music_loop_entry(self, song_list):
-        self.inner_playing_loop = True
         while self.inner_playing_loop is True:
             entry_song = self.initialized_song(song_list[0])
             begin_thr = threading.Thread(target=self.pydub_playsong, args=(entry_song[0],))
