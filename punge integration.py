@@ -436,13 +436,17 @@ class Download(tk.Frame):
 
         def add_to_db(vid_auth, vid_titl, vid_id, vid_desc):
             part1_db = difference_author_title(vid_auth, vid_titl)[0],
+            #Fix for part1_db being a tuple for whatever reason
+            part1_fixed = ''.join(part1_db)
+            print(f'PART THAT MESSES UP: {part1_db}')
             part2_db = difference_author_title(vid_auth, vid_titl)[1]
+            print(f'should look normal: {part2_db}')
             part3_db = file_extension_change_mp3(vid_auth, vid_titl, vid_id)
             part4_db = file_extension_change_jpg(vid_auth, vid_titl, vid_id)
             part5_db = album_check(vid_desc)
             part6_db = vid_id
 
-            class_object = db.import_info123(part1_db, part2_db, part3_db, part4_db, part5_db, part6_db)
+            class_object = db.import_info123(part1_fixed, part2_db, part3_db, part4_db, part5_db, part6_db)
             try:
                 Session = sessionmaker(bind=db.engine)
                 session = Session()
