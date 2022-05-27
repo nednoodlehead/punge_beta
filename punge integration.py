@@ -20,6 +20,8 @@ from pathlib import Path
 import random
 from pycaw.pycaw import AudioUtilities
 
+global_playlist = 'main'
+
 #Initialized
 class tkinter_main(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -136,7 +138,7 @@ class Main_page(tk.Frame):
                 for super_row in row:
                     new_row = super_row.replace("_", " ")
                     test1.insert('', tk.END, values=(new_row,))
-                print(f'row: {super_row}')
+                    print(f'row: {super_row}')
 
             con1.close()
 
@@ -242,7 +244,10 @@ class Main_page(tk.Frame):
                 main_page_music_multithread(selected_playlist)
                 controller.show_frame(Currently_playing)
 
-
+        def view_playlist():
+            controller.show_frame(active_playlist)
+            for item in test1.selection():
+                global_playlist = item
 
                 #instance of music(begin_loop)
 
@@ -255,7 +260,7 @@ class Main_page(tk.Frame):
         song_menu.add_command(label="Edit Name", command=change_options)
         song_menu.add_command(label="Rename Multiple", command=lambda: popup_rename_multiple("x"))
         test1.bind("<Button-3>", popup_event)
-        test1.bind("<Button-2>", lambda e: play_playlist("plaeholder for playlistname"))
+        test1.bind("<Button-1>", lambda e: play_playlist("plaeholder for playlistname"))
         #self.bind("<Return>", bind_test)
         #self.entry1.delete(0, 'end)
         query_all_playlists()
@@ -364,8 +369,6 @@ class Download(tk.Frame):
             thread1.start()
         def ytlink_box_get(*event):
             ytlink = ytlink_strvar.get()
-            #TODO fix complication with ^ .get(). it wants "self", but then the other thing gets pissy if it has argument
-            #TODO maybe exclude it somehow? some sort of designation? take to new tab and try to isolate problem
             download_differentiate(ytlink)
             ytlink_entry.delete(0, 'end')
         ytlink_entry = ttk.Entry(self, textvariable=ytlink_strvar, width=30)
@@ -428,9 +431,9 @@ class Download(tk.Frame):
             pt1_fixed2 = elite_fileloc + pt1_fixed1 + vid_id + ".mp3"
             return pt1_fixed2
 
-        def add_to_db(vid_auth, vid_titl, vid_id, vid_desc): #TODO MP3 and Jpg extensions need to include the vid_id to be exempt from a mass name failiure?
-            part1_db = difference_author_title(vid_auth, vid_titl)[0] #TODO it is partially done, will need to do a re-do of all existing file maybe. Perhaps the import should stay unimpacted, as passed in object
-            part2_db = difference_author_title(vid_auth, vid_titl)[1] #TODO will be the path with id in it.
+        def add_to_db(vid_auth, vid_titl, vid_id, vid_desc):
+            part1_db = difference_author_title(vid_auth, vid_titl)[0],
+            part2_db = difference_author_title(vid_auth, vid_titl)[1]
             part3_db = file_extension_change_mp3(vid_auth, vid_titl, vid_id)
             part4_db = file_extension_change_jpg(vid_auth, vid_titl, vid_id)
             part5_db = album_check(vid_desc)
@@ -656,7 +659,7 @@ class music_player:
     def query_list(self, list_of_choice):
         big_ol_list = []
         con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
-        cur1 = con1.cursor() #TODO NOT WORKING WHY?
+        cur1 = con1.cursor()
         print(list_of_choice)
         mex = cur1.execute("SELECT Title, Author, Album, SavelocationThumb, Savelocation, Uniqueid FROM {}".format(list_of_choice))
         print(mex.description)
@@ -702,8 +705,6 @@ class music_player:
                 thread_two = threading.Thread(target=self.pydub_playsong, args=(song_two[
                                                                                1],))  # threading just to initialize everything during the first bit. would want to change to [1] to give most time possible to init
                 thread_one.join()
-
-                # TODO wrao more code in thread.start -> thread.join() methods to increase efficiency. perhaps update loop prelude
 
                 play(crossfade_1)
                 thread_two.start()
@@ -800,10 +801,10 @@ class active_playlist(tk.Frame):
         playlist_table.heading('Album', text='Album', anchor=CENTER)
         playlist_table.pack(expand=True, ipady="75")
 
-        def query_all(playlist_choice):
+        def query_all():
             con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
             cur1 = con1.cursor()
-            cur1.execute("SELECT Author, Title, Album, Savelocation, SavelocationThumb, Uniqueid WHERE type='table' and name = ?", playlist_choice)
+            cur1.execute("SELECT Author, Title, Album, Savelocation, SavelocationThumb, Uniqueid FROM {}".format(global_playlist))
             #from 'main' need to inherit from a selelection from mainpage that includes a playlistname
             rows = cur1.fetchall()
             for row in rows:
@@ -966,9 +967,8 @@ class active_playlist(tk.Frame):
         playlist_table.bind("<Button-3>", popup_event)
         playlist_table.bind("<Delete>", lambda e: delete_multiple())
 
-
+        query_all()
         #should
-        #query_all("main")
 
 class AudioController:
     def __init__(self, process_name):
