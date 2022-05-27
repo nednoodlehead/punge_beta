@@ -20,7 +20,6 @@ from pathlib import Path
 import random
 from pycaw.pycaw import AudioUtilities
 
-global_playlist = 'main'
 
 #Initialized
 class tkinter_main(tk.Tk):
@@ -55,7 +54,9 @@ class Main_page(tk.Frame):
         playlist_scroll = Scrollbar(playlist_frame)
         playlist_scroll.pack(side=RIGHT, fill=Y)
         main_page_instance = music_player()
-
+        global global_playlist
+        global_playlist = StringVar()
+        global_playlist.set('main')
         style = ttk.Style()
         style.configure("mystyle.Treeview", font=('Calibri', 11), foreground='white', background='#262626')
         style.configure("mystyle.Treeview.Heading", font=('Times New Roman', 15), foreground='#262626', bg='blue')
@@ -247,10 +248,17 @@ class Main_page(tk.Frame):
                 main_page_music_multithread(selected_playlist)
                 controller.show_frame(Currently_playing)
 
-        def view_playlist():
+
+
+        def view_playlist(evebt):
             controller.show_frame(active_playlist)
             for item in test1.selection():
-                global_playlist = item
+                real_playlist = test1.item(item, 'values')
+                real_real_playlist = ''.join(real_playlist)
+                real_real_real_playlist = real_real_playlist.replace(" ", "_")
+                global global_playlist
+                global_playlist.set(real_real_real_playlist)
+                print(f'gbl playlist: (view_playlist): {global_playlist}')
 
                 #instance of music(begin_loop)
 
@@ -264,6 +272,7 @@ class Main_page(tk.Frame):
         song_menu.add_command(label="Rename Multiple", command=lambda: popup_rename_multiple("x"))
         test1.bind("<Button-3>", popup_event)
         test1.bind("<Button-2>", lambda e: play_playlist("plaeholder for playlistname"))
+        test1.bind("<Double-Button-1>", view_playlist)
         #self.bind("<Return>", bind_test)
         #self.entry1.delete(0, 'end)
         query_all_playlists()
@@ -786,7 +795,9 @@ class active_playlist(tk.Frame):
         button_download.place(x=0, y=175)
         button_settings.place(x=0, y=200)
         button_mp4.place(x=0, y=225)
-        playlist_title = ttk.Label(self, text=global_playlist, background='#272c34', font=('Arial', 40))
+
+
+        playlist_title = ttk.Label(self, textvariable=global_playlist, anchor="center", background='#272c34', font=('Arial', 40))
         playlist_title.place(y=15, relx=.5)
 
         playlist_frame = Frame(self)
@@ -841,7 +852,8 @@ class active_playlist(tk.Frame):
         def query_all():
             con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
             cur1 = con1.cursor()
-            cur1.execute("SELECT Author, Title, Album, Savelocation, SavelocationThumb, Uniqueid FROM {}".format(global_playlist))
+            print(f'gbl playlist: (query_all): {global_playlist}')
+            cur1.execute("SELECT Author, Title, Album, Savelocation, SavelocationThumb, Uniqueid FROM {}".format(global_playlist.get()))
             #from 'main' need to inherit from a selelection from mainpage that includes a playlistname
             rows = cur1.fetchall()
             for row in rows:
@@ -1011,8 +1023,17 @@ class active_playlist(tk.Frame):
         playlist_table.bind("<Button-3>", popup_event)
         playlist_table.bind("<Delete>", lambda e: delete_multiple())
 
-        query_all()
-        #should
+        def re_query_all():
+            un_query_all()
+            query_all()
+            print("requireed!")
+
+
+        button_refresh = Button(self, text='Refresh', command=re_query_all)
+        button_refresh.place(x=10, y=10)
+
+        re_query_all()
+
 
 class AudioController:
     def __init__(self, process_name):
