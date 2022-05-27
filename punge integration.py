@@ -26,10 +26,12 @@ global_playlist = 'main'
 class tkinter_main(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
-        self.geometry("750x500+125+225")
+        self.geometry("1000x750+125+100")
+        self.resizable(False, False)
         self.configure(bg="#272c34")
         self.title("Punge Testing")
         self.iconbitmap("./punge icon.ico")
+        self.option_add('*tearOff', FALSE)
         main_page_frame = tk.Frame(self)
         main_page_frame.pack(side="top", fill="both", expand=True)
         main_page_frame.grid_rowconfigure(0, weight=1)
@@ -58,7 +60,7 @@ class Main_page(tk.Frame):
         style.configure("mystyle.Treeview", font=('Calibri', 11), foreground='white', background='#262626')
         style.configure("mystyle.Treeview.Heading", font=('Times New Roman', 15), foreground='#262626', bg='blue')
         style.layout("mystyle.Treeview", [('mystyle.Treeview.treearea', {'sticky': 'nswe'})])
-        test1 = ttk.Treeview(playlist_frame, yscrollcommand=playlist_scroll.set, xscrollcommand=playlist_scroll.set, style="mystyle.Treeview")
+        test1 = ttk.Treeview(playlist_frame, yscrollcommand=playlist_scroll.set, xscrollcommand=playlist_scroll.set, style="mystyle.Treeview", height=20)
         style.map('Treeview', background=[('selected', '#3f5e91')])
         playlist_scroll.config(command=test1.yview)  # ability to scroll down
 
@@ -166,7 +168,7 @@ class Main_page(tk.Frame):
             selected = test1.focus()
             selected_song = test1.item(selected, 'values')
             for items in selected_song:
-                print(items)
+                print(f'items={items}')
             print(selected_song[1])
             song_id = selected_song[5]
 
@@ -260,7 +262,7 @@ class Main_page(tk.Frame):
         song_menu.add_command(label="Edit Name", command=change_options)
         song_menu.add_command(label="Rename Multiple", command=lambda: popup_rename_multiple("x"))
         test1.bind("<Button-3>", popup_event)
-        test1.bind("<Button-1>", lambda e: play_playlist("plaeholder for playlistname"))
+        test1.bind("<Button-2>", lambda e: play_playlist("plaeholder for playlistname"))
         #self.bind("<Return>", bind_test)
         #self.entry1.delete(0, 'end)
         query_all_playlists()
@@ -775,6 +777,8 @@ class active_playlist(tk.Frame):
         button_download.place(x=0, y=175)
         button_settings.place(x=0, y=200)
         button_mp4.place(x=0, y=225)
+        playlist_title = ttk.Label(self, text=global_playlist, background='#272c34', font=('Arial', 40))
+        playlist_title.place(y=15, relx=.5)
 
         playlist_frame = Frame(self)
         playlist_frame.place(x=185, y=100)
@@ -786,20 +790,44 @@ class active_playlist(tk.Frame):
         style.configure("mystyle.Treeview.Heading", font=('Times New Roman', 15), foreground='#262626', bg='blue')
         style.layout("mystyle.Treeview", [('mystyle.Treeview.treearea', {'sticky': 'nswe'})])
         playlist_table = ttk.Treeview(playlist_frame, yscrollcommand=playlist_scroll.set, xscrollcommand=playlist_scroll.set,
-                             style="mystyle.Treeview")
+                             style="mystyle.Treeview", height=20)
         style.map('Treeview', background=[('selected', '#3f5e91')])
         playlist_scroll.config(command=playlist_table.yview)  # ability to scroll down
 
         playlist_table['columns'] = ('Artist', 'Song', 'Album')
         playlist_table.column("#0", width=0, stretch=NO)
-        playlist_table.column('Artist', anchor=CENTER, width=150)
-        playlist_table.column('Song', anchor=CENTER, width=250)
-        playlist_table.column('Album', anchor=CENTER, width=140)
+        playlist_table.column('Artist', anchor=CENTER, width=250, stretch=NO)
+        playlist_table.column('Song', anchor=CENTER, width=250, stretch=NO)
+        playlist_table.column('Album', anchor=CENTER, width=250, stretch=NO)
         playlist_table.heading("#0", text='', anchor=CENTER)
         playlist_table.heading('Artist', text="Artist", anchor=CENTER)
         playlist_table.heading('Song', text="Song", anchor=CENTER)
         playlist_table.heading('Album', text='Album', anchor=CENTER)
         playlist_table.pack(expand=True, ipady="75")
+
+
+        def query_all_playlists():
+            con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
+            cur1 = con1.cursor()
+            cur1.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            rows = cur1.fetchall()
+            return rows
+
+        def add_to_playlist(playlist): #*kwargs should be music objects
+            print(f'passed in playlist: {playlist}, play[0]={playlist[0]}')
+            con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
+            cur1 = con1.cursor()
+            selected_songs = playlist_table.selection()
+            print(playlist)
+            for item in selected_songs:
+                song_broken_down = playlist_table.item(item, 'values')
+                print(f'title?: {song_broken_down[0]}, author:{song_broken_down[1]}, saveloc:{song_broken_down[2]}, thumbnail:{song_broken_down[3]}, album:{song_broken_down[4]}, id:{song_broken_down[5]}')
+                print(f'song_suple: {item}')
+
+                #print(f'selected_songs: {selected_songs}')
+                #song_tuple = playlist_table.item(selected_songs, 'values')
+                cur1.execute("INSERT INTO {} VALUES (?,?,?,?,?,?)".format(playlist[0]), (song_broken_down[1], song_broken_down[0], song_broken_down[4], song_broken_down[3], song_broken_down[2], song_broken_down[5]))
+            con1.commit()
 
         def query_all():
             con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
@@ -839,8 +867,6 @@ class active_playlist(tk.Frame):
             finally:
                 song_menu.grab_release()
 
-        def popup_add_playlist():
-            print("POPUP ADD PLAYLIST")
         def popup_rename(event):
             popup_rename_window = Toplevel(self)
             popup_rename_window.geometry("250x250+125+235") #TODO styling to not look terrible lol
@@ -960,7 +986,16 @@ class active_playlist(tk.Frame):
             popup_rename_multiple_window.bind("<Return>", rename_multiple_destory_combine)
 
         song_menu = Menu(playlist_table, tearoff=0)
-        song_menu.add_command(label="Add To:", command=popup_add_playlist)
+
+
+        playlist_submenu = Menu(song_menu)
+        for playlist_name in query_all_playlists(): #inherits last one. all 1 command. want seperate if access quer() with [0]. iterator!
+            playlist_submenu.add_command(label=playlist_name, command=lambda playlist_name=playlist_name: add_to_playlist(playlist_name))
+
+
+
+
+        song_menu.add_cascade(label="Add To:", menu=playlist_submenu)
         song_menu.add_command(label="Rename", command=lambda: popup_rename("x"))
         song_menu.add_command(label="Delete", command=delete_multiple)
         song_menu.add_command(label="Rename Multiple", command=lambda: popup_rename_multiple("x"))
