@@ -234,6 +234,7 @@ class Main_page(tk.Frame):
         def playmusic(playlist):
             main_page_playlist = main_page_instance.query_list(playlist)
             random.shuffle(main_page_playlist)
+            print(f'supposed playlist entered: {main_page_playlist}. typ: {type(main_page_playlist)}')
             main_page_instance.main_music_loop_entry(main_page_playlist)
 
         def play_playlist(xia):
@@ -659,11 +660,12 @@ class music_player:
     inner_playing_loop = True
 
     def query_list(self, list_of_choice):
+        new_list = list_of_choice.replace(" ", "_")
         big_ol_list = []
         con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
         cur1 = con1.cursor()
-        print(list_of_choice)
-        mex = cur1.execute("SELECT Title, Author, Album, SavelocationThumb, Savelocation, Uniqueid FROM {}".format(list_of_choice))
+        print(new_list)
+        mex = cur1.execute("SELECT Title, Author, Album, SavelocationThumb, Savelocation, Uniqueid FROM {}".format(new_list))
         print(mex.description)
         #cur1.execute("SELECT Title, Author, Album, SavelocationThumb, Savelocation, Uniqueid WHERE type='table' and name = ?", list_of_choice)
         #cur1.execute("SELECT Title, Author, Album, SavelocationThumb, Savelocation, Uniqueid WHERE  name = ?", list_of_choice)
@@ -693,7 +695,9 @@ class music_player:
             time.sleep(self.sleeptimer) #TODO check if not playing then close thread? Threads linger after app closes..
             print("done playing rn")
             print(self.inner_playing_loop)
-
+    def testsong(self):
+        sung = AudioSegment.from_file("F:\Files at random\MUSICAL\Downloads\Madvillain - Fancy ClownDgyMuIom9ys.mp3")
+        pydub.playback._play_with_simpleaudio(sung)
 
     def main_music_loop(self, song_list, thread_one, song_one):
         while self.inner_playing_loop is True:
@@ -730,6 +734,7 @@ class music_player:
          #- should crossfade into song 3...?
     def main_music_loop_entry(self, song_list):
         while self.inner_playing_loop is True:
+            print(f'song_list: {song_list}')
             entry_song = self.initialized_song(song_list[0])
             begin_thr = threading.Thread(target=self.pydub_playsong, args=(entry_song[0],))
             begin_thr.start()
@@ -826,7 +831,7 @@ class active_playlist(tk.Frame):
 
                 #print(f'selected_songs: {selected_songs}')
                 #song_tuple = playlist_table.item(selected_songs, 'values')
-                cur1.execute("INSERT INTO {} VALUES (?,?,?,?,?,?)".format(playlist[0]), (song_broken_down[1], song_broken_down[0], song_broken_down[4], song_broken_down[3], song_broken_down[2], song_broken_down[5]))
+                cur1.execute("INSERT INTO {} VALUES (?,?,?,?,?,?)".format(playlist[0]), (song_broken_down[1], song_broken_down[0], song_broken_down[3], song_broken_down[4], song_broken_down[2], song_broken_down[5]))
             con1.commit()
 
         def query_all():
