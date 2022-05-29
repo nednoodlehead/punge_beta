@@ -709,6 +709,7 @@ class music_player:
         print(f'Big_ol_list: {big_ol_list}')
         return big_ol_list
 
+    print(type(f'self.playback= {playback}'))
     def initialized_song(self, song_link2):
         print(f'song_link2: {song_link2.Title} - {song_link2.Author}') #Reversed for no good reason?
         global crossfade_ms
@@ -724,10 +725,18 @@ class music_player:
         if self.inner_playing_loop is True:
             print(song_to_play.duration_seconds) #if was paused do self.playback = sleeptimer - pause_adjusttimer (paused now = true). else normal
             self.sleeptimer = song_to_play.duration_seconds - .2 #TODO change to less i think
+            print(type(f'self.playback= {self.playback}'))
             self.playback = pydub.playback._play_with_simpleaudio(song_to_play) #should probably be a loop of 1 second incremnt down with total amount
             time.sleep(self.sleeptimer) #TODO check if not playing then close thread? Threads linger after app closes..
             print("done playing rn")
             print(self.inner_playing_loop)
+
+    def pause(self): #TODO this should also begin to kill the threads before they keep going. Essentially, music loop needs to have a check ccondition for if/when
+        print("clicked pause")
+        self.inner_playing_loop = False
+        print(f'playback.stop: {self.playback} is type: {type(self.playback)}')
+        pydub.playback.stop #TODO this does not take in a simpleaudio object, it takes in a string (dont know why)
+
     def testsong(self):
         sung = AudioSegment.from_file("F:\Files at random\MUSICAL\Downloads\Madvillain - Fancy ClownDgyMuIom9ys.mp3")
         pydub.playback._play_with_simpleaudio(sung)
@@ -785,10 +794,6 @@ class music_player:
             ent_crsfade.join()
             self.main_music_loop(song_list, thread_one, song_one)
 
-    def pause(self): #TODO this should also begin to kill the threads before they keep going. Essentially, music loop needs to have a check ccondition for if/when
-        print("clicked pause")
-        self.inner_playing_loop = False
-        self.playback.stop()
 
 
     def skip_forward(self):
