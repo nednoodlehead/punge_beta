@@ -25,6 +25,9 @@ class music_player:
     current_playing2 = 2
     sleeptimer = 0
     inner_playing_loop = True
+    playlist_number = 0
+    current_playlist = []
+    shuffle = True
     def query_list(self, list_of_choice):
         new_list = list_of_choice.replace(" ", "_")
         big_ol_list = []
@@ -40,24 +43,20 @@ class music_player:
             imported_music = import_music(*each)
             big_ol_list.append(imported_music)
         print(f'Big_ol_list: {big_ol_list}')
-        return big_ol_list
+        self.current_playlist = big_ol_list
 
-    #print(type(f'self.playback= {playback}'))
     def initialized_song(self, song_link2):
-        print(f'song_link2: {song_link2.Title} - {song_link2.Author}') #Reversed for no good reason?
+        print(f'song_link2: {song_link2.Title} - {song_link2.Author}')
         global crossfade_ms
         crossfade_ms = 4000
         intialize_song = Path(song_link2.Savelocation) #.savelocation use in here not outside
         active_song = AudioSegment.from_file(intialize_song, format="mp4")
-        songpt1 = active_song[:crossfade_ms]
-        songpt2 = active_song[crossfade_ms:-crossfade_ms]
-        songpt3 = active_song[-crossfade_ms:]
-        return songpt1, songpt2, songpt3
+        return active_song
 
     def pydub_playsong(self, song_to_play):
         if self.inner_playing_loop is True:
             print(song_to_play.duration_seconds) #if was paused do self.playback = sleeptimer - pause_adjusttimer (paused now = true). else normal
-            self.sleeptimer = song_to_play.duration_seconds + .4 #TODO change to less i think
+            self.sleeptimer = song_to_play.duration_seconds #TODO change to less i think
             self.playback = pydub.playback._play_with_simpleaudio(song_to_play) #should probably be a loop of 1 second incremnt down with total amount
             print(f'right after assignment: {type(pydub.playback._play_with_simpleaudio(song_to_play))} and {self.playback.stop()}')
             time.sleep(self.sleeptimer) #TODO check if not playing then close thread? Threads linger after app closes..
@@ -75,66 +74,33 @@ class music_player:
         sung = AudioSegment.from_file("F:\Files at random\MUSICAL\Downloads\Madvillain - Fancy ClownDgyMuIom9ys.mp3")
         pydub.playback._play_with_simpleaudio(sung)
 
-    def main_music_loop(self, song_list, thread_one, song_one):
-        while self.inner_playing_loop is True:
-            try:
-                print("Thread begins")
+    # play_loop needs to also take in a time based on the last pause. (like 16 seconds) to begin at said time
+    def play_loop(self):
+        # if shuffle is true, shuffle the music. pretty simple tbhh
+        if self.shuffle is True:
+            random.shuffle(self.current_playlist)
+        try:
+            # Not sure if this is exactly needed. but i like it here :D
+            while self.inner_playing_loop is True:
+                print("begin of looperoni!")
+                print(f"self.playlist_number (begin) : {self.playlist_number}")
+                current_song = self.initialized_song(self.current_playlist[self.playlist_number])
+                thread_one = threading.Thread(target=self.pydub_playsong, args=(current_song,))
                 thread_one.start()
-                print("Initializing song...")
-                song_two = self.initialized_song(song_list[self.current_playing2])
-                crossfade_1 = song_one[2].append(song_two[0], crossfade=crossfade_ms)
-                self.current_playing2 = self.current_playing2 + 2
-                thread_two = threading.Thread(target=self.pydub_playsong, args=(song_two[
-                                                                               1],))  # threading just to initialize everything during the first bit. would want to change to [1] to give most time possible to init
+                self.playlist_number = self.playlist_number + 1
+                print(f"self.playlist_number (end) : {self.playlist_number}")
                 thread_one.join()
-
-                play(crossfade_1)
-                thread_two.start()
-                print("making crossfade")
-                self.current_playing1 = self.current_playing1 + 2  # makes it 3
-                song_one = self.initialized_song(song_list[self.current_playing1])  # makes it 1
-                crossfade_2 = song_two[2].append(song_one[0], crossfade=crossfade_ms)
-                thread_one = threading.Thread(target=self.pydub_playsong, args=(song_one[1],))
-                thread_two.join()
-                play(crossfade_2)
-                print("Loop time")
-            except IndentationError:
-                print("INDEX RAISED. REPEAT TIME")
-                end_init = self.initialized_song(song_list[-1])
-                start_init = self.initialized_song(song_list[0])
-                combine_restart = end_init[2].append(start_init[0], crossfade=crossfade_ms)
-                play(combine_restart)
-                self.current_playing = 0
-                self.current_playing2 = 1
-                continue
-         #- should crossfade into song 3...?
-    def main_music_loop_entry(self, song_list):
-        while self.inner_playing_loop is True:
-            print(f'song_list: {song_list}')
-            entry_song = self.initialized_song(song_list[0])
-            begin_thr = threading.Thread(target=self.pydub_playsong, args=(entry_song[0],))
-            begin_thr.start()
-            print("initialize song 2")
-            entry_song_MT = threading.Thread(target=self.pydub_playsong, args=(entry_song[1],))
-            begin_thr.join()
-            entry_song_MT.start()
-            song_one = self.initialized_song(song_list[1])
-            entry_crossfade = entry_song[2].append(song_one[0], crossfade=crossfade_ms)
-            thread_one = threading.Thread(target=self.pydub_playsong, args=(song_one[1],))
-            entry_song_MT.join()
-            ent_crsfade = threading.Thread(target=self.pydub_playsong, args=(entry_crossfade,))
-            ent_crsfade.start()
-            print("entering loop")
-            ent_crsfade.join()
-            self.main_music_loop(song_list, thread_one, song_one)
-
+                print("end of loop!")
+        except IndexError:
+            self.playlist_number = 0
+            #self.play_loop()
 
 
     def skip_forward(self):
-        print(f' current1: {self.current_playing1}')
-        print(f' current2: {self.current_playing2}')
-        #Kill thread 1 & 2
-        #mainmusic entry with new numbers
+        print("clicked skip_forward")
+        self.playback.stop()
+        self.playlist_number = self.playlist_number + 1
+        self.play_loop()
 
 
     def skip_backwards(self):
@@ -369,11 +335,9 @@ class Main_page(tk.Frame):
         thren = threading.Thread(target=self.playmusic, args=playlist)
         thren.start()
 
-    def playmusic(self, playlist):
-        main_page_playlist = everyones_music.query_list(playlist)
-        random.shuffle(main_page_playlist)
-        print(f'supposed playlist entered: {main_page_playlist}. typ: {type(main_page_playlist)}')
-        everyones_music.main_music_loop_entry(main_page_playlist)
+    def playmusic(self, playlist_in):
+        everyones_music.query_list(playlist_in)
+        everyones_music.play_loop()
 
     def play_playlist(self, xia):
         certain_playlist = self.test1.selection()
@@ -451,10 +415,8 @@ class Currently_playing(tk.Frame):
             music_thread = threading.Thread(target=play_music)
             music_thread.start()
 
-        def play_music(playlist_of_choice): #take playlist eventually? also random.shuffle should inherit from whether or not the button is toggled
-            import_funnies = everyones_music.query_list(playlist_of_choice)
-            random.shuffle(import_funnies)
-            everyones_music.main_music_loop_entry(import_funnies)
+        def play_music():
+            everyones_music.play_loop()
 
         play_button = ttk.Button(self, text="Play", command=play_music_multithread) #added args of selected playlist
         play_button.place(relx=.5, rely=.8)
