@@ -19,15 +19,269 @@ from pydub.playback import play
 from pathlib import Path
 import random
 from pycaw.pycaw import AudioUtilities
+import sys
+
+# A kill()-able thread. Needed for the music. i forget source of this :(. will add later !
+
+
+class KThread(threading.Thread):
+    """A subclass of threading.Thread, with a kill()
+  method."""
+
+    def __init__(self, *args, **keywords):
+        threading.Thread.__init__(self, *args, **keywords)
+        self.killed = False
+
+    def start(self):
+        """Start the thread."""
+        self.__run_backup = self.run
+        self.run = self.__run  # Force the Thread to
+        threading.Thread.start(self)
+
+    def __run(self):
+        """Hacked run function, which installs the
+    trace."""
+        sys.settrace(self.globaltrace)
+        self.__run_backup()
+        self.run = self.__run_backup
+
+    def globaltrace(self, frame, why, arg):
+        if why == 'call':
+            return self.localtrace
+        else:
+            return None
+
+    def localtrace(self, frame, why, arg):
+        if self.killed:
+            if why == 'line':
+                raise SystemExit()
+        return self.localtrace
+
+    def kill(self):
+        self.killed = True
+
+
 
 class music_player:
-    current_playing1 = 3
-    current_playing2 = 2
+    song = None
+    start_time = None
+    now_time = 0
+    thr = None
+    song_count = 0
     sleeptimer = 0
-    inner_playing_loop = True
-    playlist_number = 0
     current_playlist = []
+    resume_list = []
     shuffle = True
+    exited = threading.Event()
+    coming_from_loop = True
+
+    def thd(self):
+        thr = threading.Thread(target=self.start_timer)
+        thr.start()
+
+    def start_timer(self):
+        # Detirmine if the play is coming from the resume timer or natural loop. If it is coming from natural ->
+        # clear self.resume_list() So the data for diferent songs doesn't persist
+        ween = True
+        while ween is True:
+            print("Started timer")
+            if self.coming_from_loop is True:
+                print("Cleared list")
+                self.resume_list.clear()
+            self.start_time = time.time()
+            time.sleep(10)
+
+    def stop_timer(self):
+        self.now_time = time.time() - self.start_time
+        self.now_time = round(self.now_time, 3)
+        print(f"Now time: {self.now_time}")
+        self.resume_list.append(self.now_time)
+        total_time = 0
+        for time_seg in self.resume_list:
+            total_time += time_seg
+        print(f'TOTAL_TIME: {total_time}')
+        self.coming_from_loop = False
+
+
+
+    def start_test_loop(self):
+        while not self.exited.is_set():
+            self.say_hi()
+            # The timer for the song, length of song
+            self.exited.wait(1)
+            print("end of test_loop")
+
+    def quit_out(self, signo=0, _frame=0):
+        print("interupted by ", signo)
+        self.exited.set()
+        self.stop()
+        self.exited.clear()
+
+    def thrd(self):
+        self.exited.clear()
+        self.thr = KThread(target=self.testsong)
+        self.thr.start()
+
+    def say_hi(self):
+        print("HI from say_hi()")
+        time.sleep(1)
+        print("end of say_Hi")
+
+    def thud(self):
+        print(f'check if set: {self.exited.is_set()}')
+        self.thr = KThread(target=self.testsong)
+        self.thr.start()
+        print(f'Should be true 1 (play) : {self.thr.is_alive()}')
+        self.thr.join()
+        print(f'Should be true 2 (play): {self.thr.is_alive()}')
+
+    def thud2(self):
+        self.thr = KThread(target=self.resume)
+        self.thr.start()
+        print(f'Should be true 1 : {self.thr.is_alive()}')
+        print(f'Should be true 2 : {self.thr.is_alive()}')
+
+    def event_clear(self):
+        time.sleep(1)
+        self.exited.clear()
+
+
+    def check(self):
+        print(f'status thread: {self.thr.is_alive()}')
+
+# TODO main loop needs be able to take in: regular song that is going to play & a split up song
+# TODO perhaps a self.song = self.song[:variable] variable being either audiosegment.duration_seconds()
+# TODO or the value from resume()  self.testsong(passed_in_song_portion)
+
+    def testsong(self, called_with=None):
+        """
+        THis portion is needed as a pre-requisite to the main_music_loop() because when resume calls, it needs to pass
+        in the new self.song. And when playing for the first time, It needs to define the varibale. So with this
+        function, we define both of those (New definitions ((loop based)) are created after the self.playback is called)
+        """
+        if called_with == None:
+            self.song = AudioSegment.from_file(self.current_playlist[self.song_count].Savelocation)
+            self.main_music_loop()
+        else:
+            self.main_music_loop()
+
+
+    def main_music_loop(self):
+        # Used to reset the flag to neutral. Redundant for 'first time play' but useful after a pause
+        # self.exited.clear()
+        if self.coming_from_loop is True:
+            self.resume_list.clear()
+        while not self.exited.is_set():
+            # Reset True status so if resume isn't called (sets to false) the resume_list is cleared
+            self.coming_from_loop = True
+            try:
+                print(f"index of song to play BEGIN LOOP: {self.song_count}")
+                # Plays said audio segment
+                self.start_time = time.time()
+                self.playback = pydub.playback._play_with_simpleaudio(self.song)
+                # Adjusting the class variables for next time the loop runs
+                self.sleeptimer = self.song.duration_seconds
+                # Defines next song in rotation (based on incrementing number in list index)
+                self.song_count = self.song_count + 1
+                # Begins class variable timer. Uses so resume() knows where to pick up from
+                print(f"index of song to play: {self.song_count -1}. song next: {self.song_count}")
+                # Essentially time.sleep() but can be interupted by flags ( self.exited.is_set() )
+                self.exited.wait(self.sleeptimer)
+                # Creates the audiosegment from the new song
+                print("Does this only play once per song?")
+                self.song = AudioSegment.from_file(self.current_playlist[self.song_count].Savelocation)
+                # Makes the resume will make this false if called, else: it'll clear the list each time
+                self.coming_from_loop = True
+            except IndexError:
+                self.song_count = self.song_count + 1
+                self.main_music_loop()
+
+
+    def sleep_check(self):
+        print("begin sleep")
+        time.sleep(10)
+        print("end sleep!")
+
+    def stop(self):
+        print('##STOP##')
+        self.now_time = time.time() - self.start_time
+        now_time = round(self.now_time, 3)
+        print(f'time elapsed: {now_time}')
+        print(f'self.playback in music class: = {type(self.playback)} and {type(self.playback.stop())}')
+        self.exited.set()
+        self.playback.stop()
+        # Needed to reset the exited timer. One to flick it, one to reset to neutral
+        print(f"##END STOP {self.song_count}##")
+        self.exited.set()
+
+    def skip_forwards(self):
+        print("skip forwards called ?")
+        # Kills the self.exited.wait() timer
+        self.exited.set()
+        # Kills the audiosegment playing
+        self.stop()
+        # Resets the status of self.exited.clear() it will be ready to play again
+        self.exited.clear()
+        # No song_count increment needed because the loop by default, increments song_count
+        print(f"{self.exited.is_set()}!  should be false")
+        self.resume_list.clear()
+
+    def skip_backwards(self):
+        if self.song_count == 1:
+            print("Can't go back on the first song")
+            pass
+        else:
+            print("skip forwards called ?")
+            self.exited.set()
+            self.song_count = self.song_count - 2
+            self.stop()
+            self.exited.clear()
+            self.resume_list.clear()
+            # self.exited.clear()
+    """
+fix for resuming not working:
+problem: Each time pause occurs, the self.start_song gets reset. this causes 'segmentation' of the song
+where it doesnt account for the time.time() when it should be the beginning of the song (the time difference
+should be a when the song began vs when it was most recently paused. 
+Solution:
+    create class list
+    append time of each interval into class list
+    this time ^ should be the time between the song beginning (again after a pause too) and when it is paused
+    this added-up time should not exceed the length of the song and should add up to where user paused last
+    the result of the list should be passed into self.testsong and likely calculated in self.ressume
+    """
+    def add_times(self):
+        to_return = 0
+        for item in self.resume_list:
+            to_return += item
+        return to_return
+
+
+    def resume(self):
+        print("##RESUME##")
+        self.exited.clear()
+        print(f'index at beginning of resume() {self.song_count}')
+        # Makes it replay the song that was just stopped (offsetting the +1 form the original function)
+        self.song_count = self.song_count - 1
+        self.song = AudioSegment.from_file(self.current_playlist[self.song_count].Savelocation)
+        print(f'resume count: {self.song_count}')
+        #print(f'nowtime: {now_time}')
+        # Current time in miliseconds (metric pydub operates in)
+        self.now_time = self.now_time * 1000
+        self.resume_list.append(self.now_time)
+        print(f'now_time before usage: {self.now_time}')
+        new_time = 0
+        for time_item in self.resume_list:
+            new_time += time_item
+        print(f'Size of new_time: {new_time}')
+        # Defines class variable as only a portion of a song
+        self.song = self.song[new_time:]
+        print(f'main_part (resume): {type(self.playback)}')
+        self.coming_from_loop = False
+        self.testsong("yella")
+        print(f'index at end of resume() {self.song_count}')
+
+
     def query_list(self, list_of_choice):
         new_list = list_of_choice.replace(" ", "_")
         big_ol_list = []
@@ -36,8 +290,6 @@ class music_player:
         print(new_list)
         mex = cur1.execute("SELECT Title, Author, Album, SavelocationThumb, Savelocation, Uniqueid FROM {}".format(new_list))
         print(mex.description)
-        #cur1.execute("SELECT Title, Author, Album, SavelocationThumb, Savelocation, Uniqueid WHERE type='table' and name = ?", list_of_choice)
-        #cur1.execute("SELECT Title, Author, Album, SavelocationThumb, Savelocation, Uniqueid WHERE  name = ?", list_of_choice)
         rows = cur1.fetchall()
         for each in rows:
             imported_music = import_music(*each)
@@ -45,68 +297,13 @@ class music_player:
         print(f'Big_ol_list: {big_ol_list}')
         self.current_playlist = big_ol_list
 
-    def initialized_song(self, song_link2):
-        print(f'song_link2: {song_link2.Title} - {song_link2.Author}')
-        global crossfade_ms
-        crossfade_ms = 4000
-        intialize_song = Path(song_link2.Savelocation) #.savelocation use in here not outside
-        active_song = AudioSegment.from_file(intialize_song, format="mp4")
-        return active_song
 
-    def pydub_playsong(self, song_to_play):
-        if self.inner_playing_loop is True:
-            print(song_to_play.duration_seconds) #if was paused do self.playback = sleeptimer - pause_adjusttimer (paused now = true). else normal
-            self.sleeptimer = song_to_play.duration_seconds #TODO change to less i think
-            self.playback = pydub.playback._play_with_simpleaudio(song_to_play) #should probably be a loop of 1 second incremnt down with total amount
-            print(f'right after assignment: {type(pydub.playback._play_with_simpleaudio(song_to_play))} and {self.playback.stop()}')
-            time.sleep(self.sleeptimer) #TODO check if not playing then close thread? Threads linger after app closes..
-            print("done playing rn")
-            print(self.inner_playing_loop)
-
-    def stop(self): #TODO this should also begin to kill the threads before they keep going. Essentially, music loop needs to have a check ccondition for if/when
-        print(f'paused: {type(self.playback)}')
-        self.playback.stop()
-        print("clicked pause")
-        self.inner_playing_loop = False
-        print(f'playback.stop: {self.playback} is type: {type(self.playback)}')
-
-    def testsong(self):
-        sung = AudioSegment.from_file("F:\Files at random\MUSICAL\Downloads\Madvillain - Fancy ClownDgyMuIom9ys.mp3")
-        pydub.playback._play_with_simpleaudio(sung)
-
-    # play_loop needs to also take in a time based on the last pause. (like 16 seconds) to begin at said time
-    def play_loop(self):
-        # if shuffle is true, shuffle the music. pretty simple tbhh
-        if self.shuffle is True:
-            random.shuffle(self.current_playlist)
-        try:
-            # Not sure if this is exactly needed. but i like it here :D
-            while self.inner_playing_loop is True:
-                print("begin of looperoni!")
-                print(f"self.playlist_number (begin) : {self.playlist_number}")
-                current_song = self.initialized_song(self.current_playlist[self.playlist_number])
-                thread_one = threading.Thread(target=self.pydub_playsong, args=(current_song,))
-                thread_one.start()
-                self.playlist_number = self.playlist_number + 1
-                print(f"self.playlist_number (end) : {self.playlist_number}")
-                thread_one.join()
-                print("end of loop!")
-        except IndexError:
-            self.playlist_number = 0
-            #self.play_loop()
-
-
-    def skip_forward(self):
-        print("clicked skip_forward")
-        self.playback.stop()
-        self.playlist_number = self.playlist_number + 1
-        self.play_loop()
-
-
-    def skip_backwards(self):
-        pass
 everyones_music = music_player()
-#Initialized
+
+
+# Initialized
+
+
 class tkinter_main(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
@@ -116,6 +313,7 @@ class tkinter_main(tk.Tk):
         self.title("Punge Testing")
         self.iconbitmap("./punge icon.ico")
         self.option_add('*tearOff', FALSE)
+        self.protocol("WM_DELETE_WINDOW", self.proper_close)
         main_page_frame = tk.Frame(self)
         main_page_frame.pack(side="top", fill="both", expand=True)
         main_page_frame.grid_rowconfigure(0, weight=1)
@@ -126,6 +324,11 @@ class tkinter_main(tk.Tk):
             self.frames[each_frame] = frame
             frame.grid(row=0, column=0, sticky="nsew")
         self.show_frame(Main_page)
+    def proper_close(self):
+        try:
+            everyones_music.stop()
+        finally:
+            sys.exit(10)
     def show_frame(self, cont):
         frame = self.frames[cont]
         frame.tkraise()
@@ -227,9 +430,9 @@ class Main_page(tk.Frame):
             con1.commit()
 
 
-#TODO reformat all (query) things to look for <tkinter selected table> in database -> ./all_playlists.sqlite.
-#TODO also need create_all_playlists to run only one time, or a "run if: not exists clause
-#TODO primary key should be title. the <play> functions should also inherit from selected playlist.
+# TODO reformat all (query) things to look for <tkinter selected table> in database -> ./all_playlists.sqlite.
+# TODO also need create_all_playlists to run only one time, or a "run if: not exists clause
+# TODO primary key should be title. the <play> functions should also inherit from selected playlist.
 
     def refresh_query(self):
         self.un_query_all()
@@ -330,14 +533,13 @@ class Main_page(tk.Frame):
         #The entry boxes should remain empty, as multiple entries could have a differnt values. so none added
 
     def main_page_music_multithread(self, playlist):
-        everyones_music.inner_playing_loop = True
         print(f'playlist?: {playlist}')
         thren = threading.Thread(target=self.playmusic, args=playlist)
         thren.start()
 
     def playmusic(self, playlist_in):
         everyones_music.query_list(playlist_in)
-        everyones_music.play_loop()
+        everyones_music.thrd()
 
     def play_playlist(self, xia):
         certain_playlist = self.test1.selection()
@@ -416,7 +618,7 @@ class Currently_playing(tk.Frame):
             music_thread.start()
 
         def play_music():
-            everyones_music.play_loop()
+            everyones_music.thrd()
 
         play_button = ttk.Button(self, text="Play", command=play_music_multithread) #added args of selected playlist
         play_button.place(relx=.5, rely=.8)
@@ -427,14 +629,18 @@ class Currently_playing(tk.Frame):
         slider = ttk.Scale(self, from_=0.01, to=0.2, orient="horizontal", command=volume_slider_controller)
         slider.place(rely=.5, relx=.5)
 
+        resume_button = ttk.Button(self, text="Resume", command=everyones_music.thud2)
+        resume_button.place(rely=.95, relx=.1)
+
         mute_button = ttk.Button(self, text="mute", command=volume_mute)
         mute_button.place(rely=.5, relx=.65)
 
-        skip_button = ttk.Button(self, text="Skip LOL", command=everyones_music.skip_forward)
-        skip_button.place(rely=.3, relx=.5)
+        skip_forwards = ttk.Button(self, text="Skip LOL", command=everyones_music.skip_forwards)
+        skip_forwards.place(rely=.3, relx=.5)
 
-        stop_button = ttk.Button(self, text="stop", command=everyones_music.stop)
-        stop_button.place(rely=.65, relx=.75)
+        skip_backwards = ttk.Button(self, text="Skip back", command=everyones_music.skip_backwards)
+        skip_backwards.place(rely=.85, relx=.25)
+
 
 class Settings(tk.Frame):
     def __init__(self, parent, controller):
