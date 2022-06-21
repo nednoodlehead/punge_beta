@@ -20,6 +20,9 @@ from pathlib import Path
 import random
 from pycaw.pycaw import AudioUtilities
 import sys
+from system_hotkey import SystemHotkey
+global_hotkey = SystemHotkey()
+
 
 # A kill()-able thread. Needed for the music. i forget source of this :(. will add later !
 
@@ -74,6 +77,18 @@ class music_player:
     shuffle = True
     exited = threading.Event()
     coming_from_loop = True
+    pause_bool = False
+
+    def pause_play_toggle(self, extra=None):
+        # If it is pausued:
+        if self.pause_bool is True:
+            everyones_music.thud2()
+            self.pause_bool = False
+        else:
+            self.pause_bool = True
+            everyones_music.stop()
+
+
 
     def thd(self):
         thr = threading.Thread(target=self.start_timer)
@@ -214,7 +229,7 @@ class music_player:
         print(f"##END STOP {self.song_count}##")
         self.exited.set()
 
-    def skip_forwards(self):
+    def skip_forwards(self, option=None):
         print("skip forwards called ?")
         # Kills the self.exited.wait() timer
         self.exited.set()
@@ -226,7 +241,7 @@ class music_player:
         print(f"{self.exited.is_set()}!  should be false")
         self.resume_list.clear()
 
-    def skip_backwards(self):
+    def skip_backwards(self, option=None):
         if self.song_count == 1:
             print("Can't go back on the first song")
             pass
@@ -294,6 +309,7 @@ Solution:
         for each in rows:
             imported_music = import_music(*each)
             big_ol_list.append(imported_music)
+        random.shuffle(big_ol_list)
         print(f'Big_ol_list: {big_ol_list}')
         self.current_playlist = big_ol_list
 
@@ -313,6 +329,7 @@ class tkinter_main(tk.Tk):
         self.title("Punge Testing")
         self.iconbitmap("./punge icon.ico")
         self.option_add('*tearOff', FALSE)
+        # self.properclose required for the app to stop playing music on exit
         self.protocol("WM_DELETE_WINDOW", self.proper_close)
         main_page_frame = tk.Frame(self)
         main_page_frame.pack(side="top", fill="both", expand=True)
@@ -324,6 +341,13 @@ class tkinter_main(tk.Tk):
             self.frames[each_frame] = frame
             frame.grid(row=0, column=0, sticky="nsew")
         self.show_frame(Main_page)
+        # Global hotkeys for ease of use :D. Should be adjustable and configurable
+        global_hotkey.register(['control', 'right'], callback=everyones_music.skip_forwards)
+        global_hotkey.register(['control', 'left'], callback=everyones_music.skip_backwards)
+        global_hotkey.register(['control', 'end'], callback=everyones_music.pause_play_toggle)
+        global_hotkey.register(['control', 'up'], callback=static_increment_bind)
+        global_hotkey.register(['control', 'down'], callback=static_decrease_bind)
+
     def proper_close(self):
         try:
             everyones_music.stop()
@@ -623,14 +647,11 @@ class Currently_playing(tk.Frame):
         play_button = ttk.Button(self, text="Play", command=play_music_multithread) #added args of selected playlist
         play_button.place(relx=.5, rely=.8)
 
-        pause_button = ttk.Button(self, text="Pause bruh", command=everyones_music.stop)
-        pause_button.place(relx=.5, rely=.75)
-
         slider = ttk.Scale(self, from_=0.01, to=0.2, orient="horizontal", command=volume_slider_controller)
         slider.place(rely=.5, relx=.5)
 
-        resume_button = ttk.Button(self, text="Resume", command=everyones_music.thud2)
-        resume_button.place(rely=.95, relx=.1)
+        resume_button = ttk.Button(self, text="Resume / Pause", command=everyones_music.pause_play_toggle)
+        resume_button.place(relx=.5, rely=.75)
 
         mute_button = ttk.Button(self, text="mute", command=volume_mute)
         mute_button.place(rely=.5, relx=.65)
@@ -669,9 +690,9 @@ class Download(tk.Frame):
         button_settings = Button(self, text="Settings", command=lambda: controller.show_frame(Settings))
         button_mp4 = Button(self, text="Video downloader", command=lambda: controller.show_frame(mp4_downloader))
         button_main.place(x=0, y=125)
-        button_current.place(x=0,y=150)
+        button_current.place(x=0, y=150)
         button_download.place(x=0, y=175)
-        button_settings.place(x=0,y=200)
+        button_settings.place(x=0, y=200)
         button_mp4.place(x=0, y=225)
 
         # -----Listism-----#
@@ -1226,7 +1247,7 @@ class active_playlist(tk.Frame):
 
         re_query_all()
 
-
+# This class is very buggy but is the best way to make the volume work
 class AudioController:
     def __init__(self, process_name):
         self.process_name = process_name
@@ -1237,7 +1258,6 @@ class AudioController:
         for session in sessions:
             interface = session.SimpleAudioVolume
             if session.Process and session.Process.name() == self.process_name:
-                #print("Volume:", interface.GetMasterVolume())  # debug
                 return interface.GetMasterVolume()
 
     def set_volume(self, decibels):
@@ -1248,7 +1268,30 @@ class AudioController:
                 # only set volume in the range 0.0 to 1.0
                 self.volume = min(1.0, max(0.0, decibels))
                 interface.SetMasterVolume(self.volume, None)
-                #print("Volume set to", self.volume)  # debug
+
+    def increment_volume(self, decibels):
+        decibels = self.process_volume()
+        sessions = AudioUtilities.GetAllSessions()
+        for session in sessions:
+            interface = session.SimpleAudioVolume
+            if session.Process and session.Process.name() == self.process_name:
+                # only set volume in the range 0.0 to 1.0
+                self.volume = min(1.0, max(0.0, (decibels + .01)))
+                interface.SetMasterVolume(self.volume, None)
+                print(f"volume set to: {self.volume}")
+
+    def decrease_volume(self, decibels):
+        decibels = self.process_volume()
+        sessions = AudioUtilities.GetAllSessions()
+        for session in sessions:
+            interface = session.SimpleAudioVolume
+            if session.Process and session.Process.name() == self.process_name:
+                # only set volume in the range 0.0 to 1.0
+                self.volume = min(1.0, max(0.0, (decibels - .01)))
+                interface.SetMasterVolume(self.volume, None)
+                print(f"volume set to: {self.volume}")
+
+
     def mute_volume(self, decibels):
         sessions = AudioUtilities.GetAllSessions()
         for session in sessions:
@@ -1260,10 +1303,23 @@ def volume_slider_controller(event):
     audio_controller = AudioController("python.exe") #will need to be punge.exe
     audio_controller.set_volume(float(event))
     audio_controller.process_volume()
+
+
 def volume_mute():
     audio_control = AudioController("python.exe")
     audio_control.set_volume(0)
     audio_control.process_volume()
+
+
+def static_increment_bind(extra=None):
+    audiocontroller = AudioController("python.exe")
+    audiocontroller.increment_volume("ok")
+
+
+def static_decrease_bind(extra=None):
+    audiocontroller = AudioController("python.exe")
+    audiocontroller.decrease_volume("ok")
+
 
 
 
