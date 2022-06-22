@@ -260,12 +260,18 @@ class music_player:
         if self.song_count == 1:
             pass
         else:
-            self.exited.set()
-            self.song_count = self.song_count - 2
-            self.stop()
-            self.exited.clear()
-            self.resume_list.clear()
-            # self.exited.clear()
+            if self.pause_bool is False:
+                self.exited.set()
+                self.song_count = self.song_count - 2
+                self.stop()
+                self.exited.clear()
+                self.resume_list.clear()
+            else:
+                self.exited.clear()
+                self.resume_list.clear()
+                self.song_count = self.song_count - 2
+                self.thrd()
+                self.pause_bool = False
     """
 fix for resuming not working:
 problem: Each time pause occurs, the self.start_song gets reset. this causes 'segmentation' of the song
