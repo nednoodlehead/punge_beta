@@ -277,7 +277,7 @@ fix for resuming not working:
 problem: Each time pause occurs, the self.start_song gets reset. this causes 'segmentation' of the song
 where it doesnt account for the time.time() when it should be the beginning of the song (the time difference
 should be a when the song began vs when it was most recently paused. 
-Solution: 
+Solution:
     create class list
     append time of each interval into class list
     this time ^ should be the time between the song beginning (again after a pause too) and when it is paused
