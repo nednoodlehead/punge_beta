@@ -143,12 +143,9 @@ class music_player:
         print("end of say_Hi")
 
     def thud(self):
-        print(f'check if set: {self.exited.is_set()}')
         self.thr = KThread(target=self.testsong)
         self.thr.start()
-        print(f'Should be true 1 (play) : {self.thr.is_alive()}')
         self.thr.join()
-        print(f'Should be true 2 (play): {self.thr.is_alive()}')
 
     def thud2(self):
         self.thr = KThread(target=self.resume)
@@ -169,6 +166,7 @@ class music_player:
 # TODO or the value from resume()  self.testsong(passed_in_song_portion)
 
     def testsong(self, called_with=None):
+        print("TESTSONG CALLED")
         """
         THis portion is needed as a pre-requisite to the main_music_loop() because when resume calls, it needs to pass
         in the new self.song. And when playing for the first time, It needs to define the varibale. So with this
@@ -182,6 +180,7 @@ class music_player:
 
 
     def main_music_loop(self):
+        self.print_debug("main_music_loop")
         # Used to reset the flag to neutral. Redundant for 'first time play' but useful after a pause
         # self.exited.clear()
         if self.coming_from_loop is True:
@@ -190,7 +189,6 @@ class music_player:
             # Reset True status so if resume isn't called (sets to false) the resume_list is cleared
             self.coming_from_loop = True
             try:
-                print(f"index of song to play BEGIN LOOP: {self.song_count}")
                 # Plays said audio segment
                 self.start_time = time.time()
                 self.playback = pydub.playback._play_with_simpleaudio(self.song)
@@ -199,11 +197,9 @@ class music_player:
                 # Defines next song in rotation (based on incrementing number in list index)
                 self.song_count = self.song_count + 1
                 # Begins class variable timer. Uses so resume() knows where to pick up from
-                print(f"index of song to play: {self.song_count -1}. song next: {self.song_count}")
                 # Essentially time.sleep() but can be interupted by flags ( self.exited.is_set() )
                 self.exited.wait(self.sleeptimer)
                 # Creates the audiosegment from the new song
-                print("Does this only play once per song?")
                 self.song = AudioSegment.from_file(self.current_playlist[self.song_count].Savelocation)
                 # Makes the resume will make this false if called, else: it'll clear the list each time
                 self.coming_from_loop = True
@@ -218,7 +214,6 @@ class music_player:
         print("end sleep!")
 
     def stop(self):
-        print('##STOP##')
         self.now_time = time.time() - self.start_time
         now_time = round(self.now_time, 3)
         print(f'time elapsed: {now_time}')
@@ -226,27 +221,45 @@ class music_player:
         self.exited.set()
         self.playback.stop()
         # Needed to reset the exited timer. One to flick it, one to reset to neutral
-        print(f"##END STOP {self.song_count}##")
         self.exited.set()
+        self.print_debug("stop")
 
     def skip_forwards(self, option=None):
-        print("skip forwards called ?")
-        # Kills the self.exited.wait() timer
-        self.exited.set()
-        # Kills the audiosegment playing
-        self.stop()
-        # Resets the status of self.exited.clear() it will be ready to play again
-        self.exited.clear()
-        # No song_count increment needed because the loop by default, increments song_count
-        print(f"{self.exited.is_set()}!  should be false")
-        self.resume_list.clear()
+        if self.pause_bool is False:
+            # Kills the self.exited.wait() timer
+            self.exited.set()
+            # Kills the audiosegment playing
+            self.stop()
+            # Resets the status of self.exited.clear() it will be ready to play again
+            self.exited.clear()
+            # No song_count increment needed because the loop by default, increments song_count
+            self.resume_list.clear()
+            print(f"pause_bool rn: {self.pause_bool}")
+        else:
+            print("skipforwards debug:")
+            self.print_debug("skip_forwards")
+            self.exited.clear()
+            self.resume_list.clear()
+            self.thrd()
+            self.pause_bool = False
+
+
+
+    def print_debug(self, call_method):
+        print(f'called by:  {call_method}')
+        print(f'self.thr: {self.thr}')
+        print(f'self.exited.isSet bool: {self.exited.is_set()}')
+        print(f'self.pause_bool: {self.pause_bool}')
+        print(f'self.coming_from_loop: {self.coming_from_loop}')
+        print('\n \n')
+
+
+
 
     def skip_backwards(self, option=None):
         if self.song_count == 1:
-            print("Can't go back on the first song")
             pass
         else:
-            print("skip forwards called ?")
             self.exited.set()
             self.song_count = self.song_count - 2
             self.stop()
@@ -1319,10 +1332,6 @@ def static_increment_bind(extra=None):
 def static_decrease_bind(extra=None):
     audiocontroller = AudioController("python.exe")
     audiocontroller.decrease_volume("ok")
-
-
-
-
 
 
 main_app = tkinter_main()
