@@ -354,6 +354,10 @@ class tkinter_main(tk.Tk):
         main_page_frame.pack(side="top", fill="both", expand=True)
         main_page_frame.grid_rowconfigure(0, weight=1)
         main_page_frame.grid_columnconfigure(0, weight=1)
+        right_frame = ttk.Style()
+        right_frame.configure('TFrame', background='#262626')
+        self.root_frame = ttk.Frame(self, style='TFrame', height=1000, width=200)
+        self.root_frame.place(x=850, y=0)
         self.frames = {}
         for each_frame in (Main_page, Currently_playing, Settings, Download, mp4_downloader, active_playlist):
             frame = each_frame(main_page_frame, self)
@@ -366,6 +370,27 @@ class tkinter_main(tk.Tk):
         global_hotkey.register(['control', 'end'], callback=everyones_music.pause_play_toggle)
         global_hotkey.register(['control', 'up'], callback=static_increment_bind)
         global_hotkey.register(['control', 'down'], callback=static_decrease_bind)
+        self.query_all_playlists()
+    def query_all_playlists(self):
+        default_y = 10
+        con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
+        cur1 = con1.cursor()
+        cur1.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        rows = cur1.fetchall()
+        for playlist_name in rows:
+            new_label = tk.Button(self.root_frame, wraplength=145, text=playlist_name, background='#262626',
+                                  foreground='#969595', borderwidth=0, activebackground="#262626",
+                                  activeforeground='#969595', justify='left',
+                                  command=lambda playlist_name = playlist_name: self.switch_to_playlist(playlist_name))
+            new_label.place(x=0, y=default_y)
+            new_label.update()
+            default_y = default_y + new_label.winfo_height() + 10
+
+    def switch_to_playlist(self, playlist_in):
+        global global_playlist
+        global_playlist.set(playlist_in[0])
+        self.show_frame(active_playlist)
+
 
     def proper_close(self):
         try:
@@ -374,9 +399,11 @@ class tkinter_main(tk.Tk):
             sys.exit(10)
     def show_frame(self, cont):
         frame = self.frames[cont]
+        frame.event_generate("<<ShowFrame>>")
         frame.tkraise()
     def get_page(self, page_class):
         return self.frames[page_class]
+
 
 class Main_page(tk.Frame):
 
@@ -608,19 +635,18 @@ class Main_page(tk.Frame):
             global_playlist.set(real_real_real_playlist)
             print(f'gbl playlist: (view_playlist): {global_playlist}')
 
-            def query_all(self, event):
-                con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
-                cur1 = con1.cursor()
-                print(f'THIS MESS UP?: (query_all): {global_playlist}')
-                cur1.execute(
-                    "SELECT Author, Title, Album, Savelocation, SavelocationThumb, Uniqueid FROM {}".format(
-                        global_playlist.get()))
-                # from 'main' need to inherit from a selelection from mainpage that includes a playlistname
-                rows = cur1.fetchall()
-                for row in rows:
-                    playlist_table.insert('', tk.END, values=row)
-                con1.close()
-            #instance of music(begin_loop)
+    def query_all(self, event):
+        con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
+        cur1 = con1.cursor()
+        print(f'THIS MESS UP?: (query_all): {global_playlist}')
+        cur1.execute(
+            "SELECT Author, Title, Album, Savelocation, SavelocationThumb, Uniqueid FROM {}".format(
+                global_playlist.get()))
+        # from 'main' need to inherit from a selelection from mainpage that includes a playlistname
+        rows = cur1.fetchall()
+        for row in rows:
+            playlist_table.insert('', tk.END, values=row)
+        con1.close()
 
 
 
@@ -1025,12 +1051,10 @@ class active_playlist(tk.Frame):
         button_download.place(x=0, y=175)
         button_settings.place(x=0, y=200)
         button_mp4.place(x=0, y=225)
-        #self.bind("<<ShowFrame>>", self.query_all)
-
-
+        self.bind("<<ShowFrame>>", self.on_page_begin)
+        print(f'global playlist right before used: {global_playlist}')
         playlist_title = ttk.Label(self, textvariable=global_playlist, anchor="center", background='#272c34', font=('Arial', 40))
         playlist_title.place(y=15, relx=.5)
-
         playlist_frame = Frame(self)
         playlist_frame.place(x=185, y=100)
         playlist_scroll = Scrollbar(playlist_frame)
@@ -1057,10 +1081,33 @@ class active_playlist(tk.Frame):
         playlist_table.heading('Album', text='Album', anchor=CENTER)
         playlist_table.pack(expand=True, ipady="75")
 
+    def shown(self, event):
+        print("New thingy shown")
+
+    def on_page_begin(self, event):
+        playlist_table.delete(*playlist_table.get_children())
+        self.new_query_all("event")
+        print(f"requireed! global_playlist: {global_playlist}")
+
+    def new_query_all(self, event):
+        con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
+        cur1 = con1.cursor()
+        print(f'gbl playlist type: {type(global_playlist.get())}: {global_playlist.get()}')
+        cur1.execute("SELECT Author, Title, Album, Savelocation, SavelocationThumb, Uniqueid FROM {}".format(
+            global_playlist.get()))
+        # from 'main' need to inherit from a selelection from mainpage that includes a playlistname
+        rows = cur1.fetchall()
+        for row in rows:
+            print(f'row: {row}')
+            playlist_table.insert('', tk.END, values=row)
+        con1.close()
+
+
+
     def query_all(self, event):
         con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
         cur1 = con1.cursor()
-        print(f'gbl playlist: (query_all): {global_playlist.get()}')
+        print(f'gbl playlist type: {type(global_playlist.get())}: {global_playlist.get()}')
         cur1.execute("SELECT Author, Title, Album, Savelocation, SavelocationThumb, Uniqueid FROM {}".format(
             global_playlist.get()))
         # from 'main' need to inherit from a selelection from mainpage that includes a playlistname
@@ -1259,7 +1306,7 @@ class active_playlist(tk.Frame):
         def re_query_all():
             un_query_all()
             self.query_all("event")
-            print("requireed!")
+            print(f"requireed! global_playlist: {global_playlist}")
 
 
         button_refresh = Button(self, text='Refresh', command=re_query_all)
