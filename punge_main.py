@@ -1066,6 +1066,7 @@ class active_playlist(tk.Frame):
         # from 'main' need to inherit from a selelection from mainpage that includes a playlistname
         rows = cur1.fetchall()
         for row in rows:
+            print(f'row: {row}')
             playlist_table.insert('', tk.END, values=row)
         con1.close()
         def query_all_playlists():
@@ -1306,7 +1307,7 @@ class AudioController:
             interface = session.SimpleAudioVolume
             if session.Process and session.Process.name() == self.process_name:
                 # only set volume in the range 0.0 to 1.0
-                self.volume = min(1.0, max(0.0, (decibels - .01)))
+                self.volume = min(1.0, max(0.0, (decibels - .025)))
                 interface.SetMasterVolume(self.volume, None)
                 print(f"volume set to: {self.volume}")
 
