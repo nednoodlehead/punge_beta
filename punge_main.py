@@ -525,7 +525,7 @@ class Main_page(tk.Frame):
     def create_new_table(self):
         popup_rename_window = Toplevel(self)
         popup_rename_window.geometry("250x250+125+235")
-        popup_rename_window.title("Rename :D")
+        popup_rename_window.title("")
         new_playlist_name = StringVar()
         playlist_entry = Entry(popup_rename_window, textvariable=new_playlist_name)
         playlist_entry.place(relx=.5, rely=.75)
@@ -692,7 +692,7 @@ class Main_page(tk.Frame):
         # from 'main' need to inherit from a selelection from mainpage that includes a playlistname
         rows = cur1.fetchall()
         for row in rows:
-            playlist_table.insert('', tk.END, values=row)
+            self.playlist_table.insert('', tk.END, values=row)
         con1.close()
 
 
@@ -1100,39 +1100,46 @@ class active_playlist(tk.Frame):
         button_mp4.place(x=0, y=225)
         self.bind("<<ShowFrame>>", self.on_page_begin)
         print(f'global playlist right before used: {global_playlist}')
-        playlist_title = ttk.Label(self, textvariable=global_playlist, anchor="center", background='#272c34', font=('Arial', 40))
-        playlist_title.place(y=15, x=100)
-        playlist_frame = Frame(self)
-        playlist_frame.place(x=110, y=100)
-        playlist_scroll = Scrollbar(playlist_frame)
+        self.playlist_frame = Frame(self)
+        self.playlist_frame.place(x=110, y=100)
+        self.song_menu = Menu(self.playlist_frame, tearoff=0)
+        playlist_submenu = Menu(self.song_menu)
+        for playlist_name in self.query_all_playlists(): #inherits last one. all 1 command. want seperate if access quer() with [0]. iterator!
+            playlist_submenu.add_command(label=playlist_name, command=lambda playlist_name=playlist_name: self.add_to_playlist(playlist_name))
+        self.song_menu.add_cascade(label="Add to:", menu=playlist_submenu)
+        self.song_menu.add_command(label="Play", command=lambda: self.play_playlist("y"))
+        self.song_menu.add_command(label="Rename", command=lambda: self.popup_rename("x"))
+        self.song_menu.add_command(label="Delete", command=self.delete_multiple)
+        self.song_menu.add_command(label="Rename Multiple", command=lambda: self.popup_rename_multiple("x"))
+        self.playlist_title = ttk.Label(self, textvariable=global_playlist, anchor="center", background='#272c34', font=('Arial', 40))
+        self.playlist_title.place(y=15, x=100)
+        playlist_scroll = Scrollbar(self.playlist_frame)
         playlist_scroll.pack(side=RIGHT, fill=Y)
-
         style = ttk.Style()
         style.configure("mystyle.Treeview", font=('Calibri', 11), foreground='white', background='#262626')
         style.configure("mystyle.Treeview.Heading", font=('Times New Roman', 15), foreground='#262626', bg='blue')
         style.layout("mystyle.Treeview", [('mystyle.Treeview.treearea', {'sticky': 'nswe'})])
-        global playlist_table
-        playlist_table = ttk.Treeview(playlist_frame, yscrollcommand=playlist_scroll.set, xscrollcommand=playlist_scroll.set,
+        self.playlist_table = ttk.Treeview(self.playlist_frame, yscrollcommand=playlist_scroll.set, xscrollcommand=playlist_scroll.set,
                              style="mystyle.Treeview", height=20)
+        self.playlist_table.bind("<Button-3>", self.popup_event)
         style.map('Treeview', background=[('selected', '#3f5e91')])
-        playlist_scroll.config(command=playlist_table.yview)  # ability to scroll down
-
-        playlist_table['columns'] = ('Artist', 'Song', 'Album')
-        playlist_table.column("#0", width=0, stretch=NO)
-        playlist_table.column('Artist', anchor=CENTER, width=250, stretch=NO)
-        playlist_table.column('Song', anchor=CENTER, width=250, stretch=NO)
-        playlist_table.column('Album', anchor=CENTER, width=200, stretch=NO)
-        playlist_table.heading("#0", text='', anchor=CENTER)
-        playlist_table.heading('Artist', text="Artist", anchor=CENTER)
-        playlist_table.heading('Song', text="Song", anchor=CENTER)
-        playlist_table.heading('Album', text='Album', anchor=CENTER)
-        playlist_table.pack(expand=True, ipady="75")
+        playlist_scroll.config(command=self.playlist_table.yview)  # ability to scroll down
+        self.playlist_table['columns'] = ('Artist', 'Song', 'Album')
+        self.playlist_table.column("#0", width=0, stretch=NO)
+        self.playlist_table.column('Artist', anchor=CENTER, width=250, stretch=NO)
+        self.playlist_table.column('Song', anchor=CENTER, width=250, stretch=NO)
+        self.playlist_table.column('Album', anchor=CENTER, width=200, stretch=NO)
+        self.playlist_table.heading("#0", text='', anchor=CENTER)
+        self.playlist_table.heading('Artist', text="Artist", anchor=CENTER)
+        self.playlist_table.heading('Song', text="Song", anchor=CENTER)
+        self.playlist_table.heading('Album', text='Album', anchor=CENTER)
+        self.playlist_table.pack(expand=True, ipady="75")
 
     def shown(self, event):
         print("New thingy shown")
 
     def on_page_begin(self, event):
-        playlist_table.delete(*playlist_table.get_children())
+        self.playlist_table.delete(*self.playlist_table.get_children())
         self.new_query_all("event")
         print(f"requireed! global_playlist: {global_playlist}")
 
@@ -1146,7 +1153,7 @@ class active_playlist(tk.Frame):
         rows = cur1.fetchall()
         for row in rows:
             print(f'row: {row}')
-            playlist_table.insert('', tk.END, values=row)
+            self.playlist_table.insert('', tk.END, values=row)
         con1.close()
 
 
@@ -1161,196 +1168,197 @@ class active_playlist(tk.Frame):
         rows = cur1.fetchall()
         for row in rows:
             print(f'row: {row}')
-            playlist_table.insert('', tk.END, values=row)
+            self.playlist_table.insert('', tk.END, values=row)
         con1.close()
-        def query_all_playlists():
-            con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
-            cur1 = con1.cursor()
-            cur1.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            rows = cur1.fetchall()
-            return rows
+    def query_all_playlists(self):
+        con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
+        cur1 = con1.cursor()
+        cur1.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        rows = cur1.fetchall()
+        return rows
 
-        def add_to_playlist(playlist): #*kwargs should be music objects
-            print(f'passed in playlist: {playlist}, play[0]={playlist[0]}')
-            con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
-            cur1 = con1.cursor()
-            selected_songs = playlist_table.selection()
-            print(playlist)
-            for item in selected_songs:
-                song_broken_down = playlist_table.item(item, 'values')
-                print(f'title?: {song_broken_down[0]}, author:{song_broken_down[1]}, saveloc:{song_broken_down[2]}, thumbnail:{song_broken_down[3]}, album:{song_broken_down[4]}, id:{song_broken_down[5]}')
-                print(f'song_suple: {item}')
+    def add_to_playlist(self, playlist): #*kwargs should be music objects
+        print(f'passed in playlist: {playlist}, play[0]={playlist[0]}')
+        con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
+        cur1 = con1.cursor()
+        selected_songs = self.playlist_table.selection()
+        print(playlist)
+        for item in selected_songs:
+            song_broken_down = self.playlist_table.item(item, 'values')
+            print(f'title?: {song_broken_down[0]}, author:{song_broken_down[1]}, saveloc:{song_broken_down[2]}, thumbnail:{song_broken_down[3]}, album:{song_broken_down[4]}, id:{song_broken_down[5]}')
+            print(f'song_suple: {item}')
 
-                #print(f'selected_songs: {selected_songs}')
-                #song_tuple = playlist_table.item(selected_songs, 'values')
-                cur1.execute("INSERT INTO {} VALUES (?,?,?,?,?,?)".format(playlist[0]), (song_broken_down[1], song_broken_down[0], song_broken_down[3], song_broken_down[4], song_broken_down[2], song_broken_down[5]))
-            con1.commit()
+            #print(f'selected_songs: {selected_songs}')
+            #song_tuple = self.playlist_table.item(selected_songs, 'values')
+            cur1.execute("INSERT INTO {} VALUES (?,?,?,?,?,?)".format(playlist[0]), (song_broken_down[1], song_broken_down[0], song_broken_down[3], song_broken_down[4], song_broken_down[2], song_broken_down[5]))
+        con1.commit()
 
 
-        def un_query_all():
-            playlist_table.delete(*playlist_table.get_children())
+    def un_query_all(self):
+        self.playlist_table.delete(*self.playlist_table.get_children())
 
-        def delete_multiple(): #Deleting should exist in a 'deleting mode', should change the background color of TREEVIEW
-            selection_items = playlist_table.selection()
-            for item in selection_items:
-                multiple_id = (playlist_table.item(item)['values'])
-                remove_id = multiple_id[5]
-                delete_from_db(remove_id, multiple_id[1])
-                playlist_table.delete(item)
-                os.remove(multiple_id[3])
-                os.remove(multiple_id[4])
+    def delete_multiple(self): #Deleting should exist in a 'deleting mode', should change the background color of TREEVIEW
+        selection_items = self.playlist_table.selection()
+        for item in selection_items:
+            multiple_id = (self.playlist_table.item(item)['values'])
+            remove_id = multiple_id[5]
+            self.delete_from_db(remove_id, multiple_id[1])
+            self.playlist_table.delete(item)
+            os.remove(multiple_id[3])
+            os.remove(multiple_id[4])
 
-        def delete_from_db(id, song_named):
-            connect1 = sqlite3.connect('MAINPLAYLIST.sqlite')
+    def delete_from_db(self, id, song_named):
+        connect1 = sqlite3.connect('MAINPLAYLIST.sqlite')
+        concur2 = connect1.cursor()
+        print(f'deleting: {song_named}')
+        concur2.execute("DELETE FROM main WHERE Uniqueid=?", (id,))
+        connect1.commit()
+        concur2.close()
+
+
+    def popup_event(self, event):
+        print("CLICKED!!!")
+        try:
+            self.song_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.song_menu.grab_release()
+
+    def popup_rename(self, event):
+        popup_rename_window = Toplevel(self)
+        popup_rename_window.geometry("250x250+125+235") #TODO styling to not look terrible lol
+        popup_rename_window.title("Rename :D")
+        selected = self.playlist_table.focus()
+        selected_song = self.playlist_table.item(selected, 'values')
+        for items in selected_song:
+            print(items)
+        print(selected_song[1])
+        song_id = selected_song[5]
+
+        def destroy_popup(event):
+            popup_rename_window.destroy()
+            popup_rename_window.update()
+
+        author_rename_label = Label(popup_rename_window, text="Author").pack()
+        author_rename_entry = Entry(popup_rename_window)
+        author_rename_entry.insert(END, selected_song[0])
+        author_rename_entry.pack()
+        title_rename_label = Label(popup_rename_window, text="Title").pack()
+        title_rename_entry = Entry(popup_rename_window)
+        title_rename_entry.insert(END, selected_song[1])
+        title_rename_entry.pack()
+        album_rename_label = Label(popup_rename_window, text="Album").pack()
+        album_rename_entry = Entry(popup_rename_window)
+        album_rename_entry.insert(END, selected_song[2])
+        album_rename_entry.pack()
+
+        def rename_entry(event):
+            new_author = author_rename_entry.get()
+            new_title = title_rename_entry.get()
+            new_album = album_rename_entry.get()
+            self.playlist_table.item(selected, text="",
+                       values=(
+                       new_author, new_title, new_album, selected_song[3], selected_song[4], selected_song[5]))
+
+        def rename_destroy_combine(event):
+            rename_entry("event")
+            change_database_entry("event")
+            destroy_popup("event")
+
+        def change_database_entry(event):
+            connect1 = sqlite3.connect('./MAINPLAYLIST.sqlite')
             concur2 = connect1.cursor()
-            print(f'deleting: {song_named}')
-            concur2.execute("DELETE FROM main WHERE Uniqueid=?", (id,))
+            # concur2.execute("UPDATE FROM main WHERE Uniqueid=?", (song_id,)) guess
+            update_author = author_rename_entry.get()
+            update_title = title_rename_entry.get()
+            update_album = album_rename_entry.get()
+            retain_download_jpg = selected_song[3]
+            retain_download_mp3 = selected_song[4]
+            concur2.execute(
+                "UPDATE main SET Author=?, Title=?, Album=? , Savelocation=?, SavelocationThumb=? WHERE Uniqueid=?",
+                (update_author, update_title, update_album, retain_download_jpg, retain_download_mp3, song_id,))
+
             connect1.commit()
-            concur2.close()
+            connect1.close()
 
 
-        def popup_event(event):
-            try:
-                song_menu.tk_popup(event.x_root, event.y_root)
-            finally:
-                song_menu.grab_release()
+        popup_rename_window.bind("<Return>", rename_destroy_combine)
 
-        def popup_rename(event):
-            popup_rename_window = Toplevel(self)
-            popup_rename_window.geometry("250x250+125+235") #TODO styling to not look terrible lol
-            popup_rename_window.title("Rename :D")
-            selected = playlist_table.focus()
-            selected_song = playlist_table.item(selected, 'values')
-            for items in selected_song:
-                print(items)
-            print(selected_song[1])
-            song_id = selected_song[5]
+    def popup_rename_multiple(self, event):
+        popup_rename_multiple_window = Toplevel(self)
+        popup_rename_multiple_window.geometry("250x250+125+235")
+        popup_rename_multiple_window.title("Rename Multiple :D")
+        all_selected = self.playlist_table.selection()
+        for one_song in all_selected:
+            selected_song = self.playlist_table.item(one_song, 'values')
+            print(f'selcted: {all_selected}')
+            print(f'selected_song: {selected_song}')
 
-            def destroy_popup(event):
-                popup_rename_window.destroy()
-                popup_rename_window.update()
+        def destroy_multiple_popup(event):
+            popup_rename_multiple_window.destroy()
+            popup_rename_multiple_window.update()
+            # Rename Multiple Entry
 
-            author_rename_label = Label(popup_rename_window, text="Author").pack()
-            author_rename_entry = Entry(popup_rename_window)
-            author_rename_entry.insert(END, selected_song[0])
-            author_rename_entry.pack()
-            title_rename_label = Label(popup_rename_window, text="Title").pack()
-            title_rename_entry = Entry(popup_rename_window)
-            title_rename_entry.insert(END, selected_song[1])
-            title_rename_entry.pack()
-            album_rename_label = Label(popup_rename_window, text="Album").pack()
-            album_rename_entry = Entry(popup_rename_window)
-            album_rename_entry.insert(END, selected_song[2])
-            album_rename_entry.pack()
+        # Rename Multiple Entry
+        Label(popup_rename_multiple_window, text="Author").pack()
+        author_rename_entry = Entry(popup_rename_multiple_window)
+        author_rename_entry.pack()
+        Label(popup_rename_multiple_window, text="Album").pack()
+        album_rename_entry = Entry(popup_rename_multiple_window)
+        album_rename_entry.pack()
+        #The entry boxes should remain empty, as multiple entries could have a differnt values. so none added
 
-            def rename_entry(event):
-                new_author = author_rename_entry.get()
-                new_title = title_rename_entry.get()
-                new_album = album_rename_entry.get()
-                playlist_table.item(selected, text="",
-                           values=(
-                           new_author, new_title, new_album, selected_song[3], selected_song[4], selected_song[5]))
-
-            def rename_destroy_combine(event):
-                rename_entry("event")
-                change_database_entry("event")
-                destroy_popup("event")
-
-            def change_database_entry(event):
-                connect1 = sqlite3.connect('./MAINPLAYLIST.sqlite')
-                concur2 = connect1.cursor()
-                # concur2.execute("UPDATE FROM main WHERE Uniqueid=?", (song_id,)) guess
-                update_author = author_rename_entry.get()
-                update_title = title_rename_entry.get()
-                update_album = album_rename_entry.get()
-                retain_download_jpg = selected_song[3]
-                retain_download_mp3 = selected_song[4]
-                concur2.execute(
-                    "UPDATE main SET Author=?, Title=?, Album=? , Savelocation=?, SavelocationThumb=? WHERE Uniqueid=?",
-                    (update_author, update_title, update_album, retain_download_jpg, retain_download_mp3, song_id,))
-
-                connect1.commit()
-                connect1.close()
-
-
-            popup_rename_window.bind("<Return>", rename_destroy_combine)
-
-        def popup_rename_multiple(event):
-            popup_rename_multiple_window = Toplevel(self)
-            popup_rename_multiple_window.geometry("250x250+125+235")
-            popup_rename_multiple_window.title("Rename Multiple :D")
-            all_selected = playlist_table.selection()
+        def multiple_rename_entry(*event):
+            new_author = author_rename_entry.get()
+            new_album = album_rename_entry.get()
+            all_selected = self.playlist_table.selection()
             for one_song in all_selected:
-                selected_song = playlist_table.item(one_song, 'values')
+                selected_song = self.playlist_table.item(one_song, 'values')
                 print(f'selcted: {all_selected}')
                 print(f'selected_song: {selected_song}')
+                self.playlist_table.item(one_song, text='', values=(new_author, selected_song[1], new_album, selected_song[3], selected_song[4], selected_song[5]))
+                change_database_entry_multiple("event", selected_song)
 
-            def destroy_multiple_popup(event):
-                popup_rename_multiple_window.destroy()
-                popup_rename_multiple_window.update()
-                # Rename Multiple Entry
+        def rename_multiple_destory_combine(event):
+            multiple_rename_entry("event")
+            change_database_entry_multiple("event", selected_song)  # CREATE ONE
+            destroy_multiple_popup("event")
 
-            # Rename Multiple Entry
-            Label(popup_rename_multiple_window, text="Author").pack()
-            author_rename_entry = Entry(popup_rename_multiple_window)
-            author_rename_entry.pack()
-            Label(popup_rename_multiple_window, text="Album").pack()
-            album_rename_entry = Entry(popup_rename_multiple_window)
-            album_rename_entry.pack()
-            #The entry boxes should remain empty, as multiple entries could have a differnt values. so none added
+        def change_database_entry_multiple(event, passed_in_song):
+            connect1 = sqlite3.connect('./MAINPLAYLIST.sqlite')
+            concur2 = connect1.cursor()
+            update_author = author_rename_entry.get()
+            update_album = album_rename_entry.get()
+            retain_title = passed_in_song[1]
+            retain_download_jpg = passed_in_song[4]
+            retain_download_mp3 = passed_in_song[3]
+            retain_song_id = passed_in_song[5]
+            concur2.execute(
+                "UPDATE main SET Author=?, Title=?, Album=? , Savelocation=?, SavelocationThumb=? WHERE Uniqueid=?",  #I would want to say that this doesnt reapply 'Uniqueid' but idk
+                (update_author, retain_title, update_album, retain_download_mp3, retain_download_jpg, retain_song_id,))
 
-            def multiple_rename_entry(*event):
-                new_author = author_rename_entry.get()
-                new_album = album_rename_entry.get()
-                all_selected = playlist_table.selection()
-                for one_song in all_selected:
-                    selected_song = playlist_table.item(one_song, 'values')
-                    print(f'selcted: {all_selected}')
-                    print(f'selected_song: {selected_song}')
-                    playlist_table.item(one_song, text='', values=(new_author, selected_song[1], new_album, selected_song[3], selected_song[4], selected_song[5]))
-                    change_database_entry_multiple("event", selected_song)
+            connect1.commit()
+            connect1.close()
+        popup_rename_multiple_window.bind("<Return>", rename_multiple_destory_combine)
 
-            def rename_multiple_destory_combine(event):
-                multiple_rename_entry("event")
-                change_database_entry_multiple("event", selected_song)  # CREATE ONE
-                destroy_multiple_popup("event")
-
-            def change_database_entry_multiple(event, passed_in_song):
-                connect1 = sqlite3.connect('./MAINPLAYLIST.sqlite')
-                concur2 = connect1.cursor()
-                update_author = author_rename_entry.get()
-                update_album = album_rename_entry.get()
-                retain_title = passed_in_song[1]
-                retain_download_jpg = passed_in_song[4]
-                retain_download_mp3 = passed_in_song[3]
-                retain_song_id = passed_in_song[5]
-                concur2.execute(
-                    "UPDATE main SET Author=?, Title=?, Album=? , Savelocation=?, SavelocationThumb=? WHERE Uniqueid=?",  #I would want to say that this doesnt reapply 'Uniqueid' but idk
-                    (update_author, retain_title, update_album, retain_download_mp3, retain_download_jpg, retain_song_id,))
-
-                connect1.commit()
-                connect1.close()
-            popup_rename_multiple_window.bind("<Return>", rename_multiple_destory_combine)
-
-        song_menu = Menu(playlist_table, tearoff=0)
+        song_menu = Menu(self.playlist_table, tearoff=0)
 
 
         playlist_submenu = Menu(song_menu)
-        for playlist_name in query_all_playlists(): #inherits last one. all 1 command. want seperate if access quer() with [0]. iterator!
-            playlist_submenu.add_command(label=playlist_name, command=lambda playlist_name=playlist_name: add_to_playlist(playlist_name))
+        for playlist_name in self.query_all_playlists(): #inherits last one. all 1 command. want seperate if access quer() with [0]. iterator!
+            playlist_submenu.add_command(label=playlist_name, command=lambda playlist_name=playlist_name: self.add_to_playlist(playlist_name))
 
 
 
 
         song_menu.add_cascade(label="Add To:", menu=playlist_submenu)
-        song_menu.add_command(label="Rename", command=lambda: popup_rename("x"))
-        song_menu.add_command(label="Delete", command=delete_multiple)
-        song_menu.add_command(label="Rename Multiple", command=lambda: popup_rename_multiple("x"))
-        playlist_table.bind("<Button-3>", popup_event)
-        playlist_table.bind("<Delete>", lambda e: delete_multiple())
+        song_menu.add_command(label="Rename", command=lambda: self.popup_rename("x"))
+        song_menu.add_command(label="Delete", command=self.delete_multiple)
+        song_menu.add_command(label="Rename Multiple", command=lambda: self.popup_rename_multiple("x"))
+        self.playlist_table.bind("<Button-3>", self.popup_event)
+        self.playlist_table.bind("<Delete>", lambda e: self.delete_multiple())
 
-        def re_query_all():
-            un_query_all()
+        def re_query_all(self):
+            self.un_query_all()
             self.query_all("event")
             print(f"requireed! global_playlist: {global_playlist}")
 
@@ -1400,7 +1408,7 @@ class AudioController:
             interface = session.SimpleAudioVolume
             if session.Process and session.Process.name() == self.process_name:
                 # only set volume in the range 0.0 to 1.0
-                self.volume = min(1.0, max(0.0, (decibels - .025)))
+                self.volume = min(1.0, max(0.0, (decibels - .01)))
                 interface.SetMasterVolume(self.volume, None)
                 print(f"volume set to: {self.volume}")
 
