@@ -161,9 +161,6 @@ class music_player:
     def check(self):
         print(f'status thread: {self.thr.is_alive()}')
 
-# TODO main loop needs be able to take in: regular song that is going to play & a split up song
-# TODO perhaps a self.song = self.song[:variable] variable being either audiosegment.duration_seconds()
-# TODO or the value from resume()  self.testsong(passed_in_song_portion)
 
     def testsong(self, called_with=None):
         print("TESTSONG CALLED")
@@ -342,7 +339,7 @@ everyones_music = music_player()
 class tkinter_main(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
-        self.geometry("1000x750+125+100")
+        self.geometry("1250x750+125+100")
         self.resizable(False, False)
         self.configure(bg="#272c34")
         self.title("Punge Testing")
@@ -357,7 +354,7 @@ class tkinter_main(tk.Tk):
         right_frame = ttk.Style()
         right_frame.configure('TFrame', background='#262626')
         self.root_frame = ttk.Frame(self, style='TFrame', height=1000, width=200)
-        self.root_frame.place(x=850, y=0)
+        self.root_frame.place(x=1050, y=0)
         self.frames = {}
         for each_frame in (Main_page, Currently_playing, Settings, Download, mp4_downloader, active_playlist):
             frame = each_frame(main_page_frame, self)
@@ -371,6 +368,49 @@ class tkinter_main(tk.Tk):
         global_hotkey.register(['control', 'up'], callback=static_increment_bind)
         global_hotkey.register(['control', 'down'], callback=static_decrease_bind)
         self.query_all_playlists()
+        self.playlist_menu = Menu(self.root_frame, tearoff=0)
+        self.playlist_menu.add_command(label="New..", command=self.create_new_table)
+        self.root_frame.bind("<Button-3>", self.popup_event)
+
+    def popup_event(self, event):
+        try:
+            self.playlist_menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.playlist_menu.grab_release()
+
+    def create_new_table(self):
+        popup_rename_window = Toplevel(self)
+        popup_rename_window.geometry("250x250+850+275")
+        popup_rename_window.title("Rename :D")
+        popup_rename_window.configure(background="#272c34")
+        new_playlist_name = StringVar()
+        playlist_entry = ttk.Entry(popup_rename_window, textvariable=new_playlist_name)
+        playlist_entry.place(x=75, y=20)
+        playlist_entry.focus()
+        playlist_create = ttk.Button(popup_rename_window, text="Create!!", command=lambda: create_playlist_combine(playlist_entry.get()))
+        playlist_create.place(x=75, y=45)
+
+        def underscore_replace(to_replace):
+            new_str = to_replace.replace(" ", "_")
+            return new_str
+
+
+        def create_playlist_combine(play_enter):
+            table_backend(underscore_replace(play_enter))
+            destroy_popup("none lol")
+        def destroy_popup(event):
+            popup_rename_window.destroy()
+            popup_rename_window.update()
+
+
+
+        def table_backend(playlist_entry_got):
+            con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
+            cur1 = con1.cursor()
+            cur1.execute("CREATE TABLE IF NOT EXISTS " +playlist_entry_got+ " (Title TEXT, Author TEXT,Savelocation TEXT,SavelocationThumb TEXT,Album TEXT, Uniqueid TEXT NOT NULL PRIMARY KEY)")
+            con1.commit()
+            self.query_all_playlists()
+
     def query_all_playlists(self):
         default_y = 10
         con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
@@ -378,13 +418,28 @@ class tkinter_main(tk.Tk):
         cur1.execute("SELECT name FROM sqlite_master WHERE type='table';")
         rows = cur1.fetchall()
         for playlist_name in rows:
-            new_label = tk.Button(self.root_frame, wraplength=145, text=playlist_name, background='#262626',
+            newname = playlist_name[0].replace("_", " ")
+            new_button = tk.Button(self.root_frame, wraplength=190, text=newname, background='#262626',
                                   foreground='#969595', borderwidth=0, activebackground="#262626",
                                   activeforeground='#969595', justify='left',
-                                  command=lambda playlist_name = playlist_name: self.switch_to_playlist(playlist_name))
-            new_label.place(x=0, y=default_y)
-            new_label.update()
-            default_y = default_y + new_label.winfo_height() + 10
+                                  command=lambda playlist_name=playlist_name: self.switch_to_playlist(playlist_name))
+            playlist_option = Menu(new_button, tearoff=0)
+            playlist_option.add_command(label='test', command=lambda: self.play_check(playlist_name))
+            new_button.place(x=0, y=default_y)
+            new_button.update()
+            new_button.bind("<Mouse-3>", )
+            default_y = default_y + new_button.winfo_height() + 10
+
+    def play_check(self, active_playlist, event=0):
+        print(active_playlist)
+# TODO ok so each button needs to have its own command. Either through the loop giving it one or a parameter
+# TODO being passed in (name of button convert to sql playlist) so playlists can be edited / modified.
+    def playlist_popup(self, event):
+        try:
+            self.playl.tk_popup(event.x_root, event.y_root)
+        finally:
+            self.song_menu.grab_release()
+
 
     def switch_to_playlist(self, playlist_in):
         global global_playlist
@@ -467,8 +522,6 @@ class Main_page(tk.Frame):
         new_page = self.controller.get_page(active_playlist)
         new_page.query_all("event")
 
-
-
     def create_new_table(self):
         popup_rename_window = Toplevel(self)
         popup_rename_window.geometry("250x250+125+235")
@@ -500,9 +553,6 @@ class Main_page(tk.Frame):
             con1.commit()
 
 
-# TODO reformat all (query) things to look for <tkinter selected table> in database -> ./all_playlists.sqlite.
-# TODO also need create_all_playlists to run only one time, or a "run if: not exists clause
-# TODO primary key should be title. the <play> functions should also inherit from selected playlist.
 
     def refresh_query(self):
         self.un_query_all()
@@ -574,9 +624,6 @@ class Main_page(tk.Frame):
                        values=(
                        new_author, new_title, new_album, selected_song[3], selected_song[4], selected_song[5]))
 
-
-
-        # TODO 132 does not fetch requested ID of <selected> item. make it.
 
     def popup_rename_multiple(self, event):
         popup_rename_multiple_window = Toplevel(self)
@@ -1054,9 +1101,9 @@ class active_playlist(tk.Frame):
         self.bind("<<ShowFrame>>", self.on_page_begin)
         print(f'global playlist right before used: {global_playlist}')
         playlist_title = ttk.Label(self, textvariable=global_playlist, anchor="center", background='#272c34', font=('Arial', 40))
-        playlist_title.place(y=15, relx=.5)
+        playlist_title.place(y=15, x=100)
         playlist_frame = Frame(self)
-        playlist_frame.place(x=185, y=100)
+        playlist_frame.place(x=110, y=100)
         playlist_scroll = Scrollbar(playlist_frame)
         playlist_scroll.pack(side=RIGHT, fill=Y)
 
@@ -1074,7 +1121,7 @@ class active_playlist(tk.Frame):
         playlist_table.column("#0", width=0, stretch=NO)
         playlist_table.column('Artist', anchor=CENTER, width=250, stretch=NO)
         playlist_table.column('Song', anchor=CENTER, width=250, stretch=NO)
-        playlist_table.column('Album', anchor=CENTER, width=250, stretch=NO)
+        playlist_table.column('Album', anchor=CENTER, width=200, stretch=NO)
         playlist_table.heading("#0", text='', anchor=CENTER)
         playlist_table.heading('Artist', text="Artist", anchor=CENTER)
         playlist_table.heading('Song', text="Song", anchor=CENTER)
@@ -1227,7 +1274,6 @@ class active_playlist(tk.Frame):
 
 
             popup_rename_window.bind("<Return>", rename_destroy_combine)
-            # TODO 132 does not fetch requested ID of <selected> item. make it.
 
         def popup_rename_multiple(event):
             popup_rename_multiple_window = Toplevel(self)
