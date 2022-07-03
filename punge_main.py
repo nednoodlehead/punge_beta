@@ -1,5 +1,6 @@
 from tkinter import ttk
 from tkinter import *
+from tkinter import messagebox
 import tkinter as tk
 import os
 import sqlite3
@@ -67,7 +68,7 @@ class KThread(threading.Thread):
 
 class music_player:
     song = None
-    start_time = None
+    start_time = 0
     now_time = 0
     thr = None
     song_count = 0
@@ -78,6 +79,7 @@ class music_player:
     exited = threading.Event()
     coming_from_loop = True
     pause_bool = False
+    is_playing = False
 
     def pause_play_toggle(self, extra=None):
         # If it is pausued:
@@ -177,6 +179,7 @@ class music_player:
 
 
     def main_music_loop(self):
+        self.is_playing = True
         self.print_debug("main_music_loop")
         # Used to reset the flag to neutral. Redundant for 'first time play' but useful after a pause
         # self.exited.clear()
@@ -195,6 +198,7 @@ class music_player:
                 self.song_count = self.song_count + 1
                 # Begins class variable timer. Uses so resume() knows where to pick up from
                 # Essentially time.sleep() but can be interupted by flags ( self.exited.is_set() )
+                print(f'current song: {self.current_playlist[self.song_count - 1].Title} sngcount: {self.song_count-1}')
                 self.exited.wait(self.sleeptimer)
                 # Creates the audiosegment from the new song
                 self.song = AudioSegment.from_file(self.current_playlist[self.song_count].Savelocation)
@@ -210,11 +214,46 @@ class music_player:
         time.sleep(10)
         print("end sleep!")
 
+    def debug(self):
+        print("-----DEBUG----")
+        print(self.song)
+        print(self.start_time)
+        print(self.now_time)
+        print(self.thr)
+        print(self.song_count)
+        print(self.sleeptimer)
+        print(self.current_playlist)
+        print(self.resume_list)
+        print(self.shuffle)
+        print(self.exited)
+        print(self.coming_from_loop)
+        print(self.pause_bool)
+        print(self.is_playing)
+        print("-----DEBUG----")
+
+    def reset_class_defaults(self):
+        #self.stop()
+        self.song = None
+        self.start_time = 0
+        self.now_time = 0
+        self.thr = None
+        self.song_count = 0
+        self.sleeptimer = 0
+        self.current_playlist = []
+        self.resume_list = []
+        self.shuffle = True
+        self.exited = threading.Event()
+        self.coming_from_loop = True
+        self.pause_bool = False
+        self.is_playing = False
+
+
+
     def stop(self):
+        self.is_playing = False
+        print(type(self.now_time), type(self.start_time))
         self.now_time = time.time() - self.start_time
         now_time = round(self.now_time, 3)
-        print(f'time elapsed: {now_time}')
-        print(f'self.playback in music class: = {type(self.playback)} and {type(self.playback.stop())}')
         self.exited.set()
         self.playback.stop()
         # Needed to reset the exited timer. One to flick it, one to reset to neutral
@@ -318,15 +357,12 @@ Solution:
         big_ol_list = []
         con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
         cur1 = con1.cursor()
-        print(new_list)
         mex = cur1.execute("SELECT Title, Author, Album, SavelocationThumb, Savelocation, Uniqueid FROM {}".format(new_list))
-        print(mex.description)
         rows = cur1.fetchall()
         for each in rows:
             imported_music = import_music(*each)
             big_ol_list.append(imported_music)
         random.shuffle(big_ol_list)
-        print(f'Big_ol_list: {big_ol_list}')
         self.current_playlist = big_ol_list
 
 
@@ -353,6 +389,8 @@ class tkinter_main(tk.Tk):
         main_page_frame.grid_columnconfigure(0, weight=1)
         right_frame = ttk.Style()
         right_frame.configure('TFrame', background='#262626')
+        tk.Button(self, text='DEBUG !',command=everyones_music.debug).place(x=100, y=10)
+
         self.root_frame = ttk.Frame(self, style='TFrame', height=1000, width=200)
         self.root_frame.place(x=1050, y=0)
         self.frames = {}
@@ -501,6 +539,8 @@ class Main_page(tk.Frame):
         button_mp4.place(x=0, y=225)
         button_make_main_table = Button(self, text="TRY NEW PLAYLIST", command=self.create_new_table)
         button_make_main_table.place(relx=.5, rely=.6)
+
+        Button(self, text='reset class defaults', command=self.reseter).place(x=100, y=500)
 
         self.song_menu = Menu(self.test1, tearoff=0)
         self.song_menu.add_command(label="Play", command=lambda: self.play_playlist("y"))
@@ -654,12 +694,23 @@ class Main_page(tk.Frame):
         thren = threading.Thread(target=self.playmusic, args=playlist)
         thren.start()
 
+    def reseter(self):
+        everyones_music.reset_class_defaults()
+
     def playmusic(self, playlist_in):
+        print(f'playmusic: is_playing: {everyones_music.is_playing}')
+        if everyones_music.is_playing is True:
+            everyones_music.stop()
+            time.sleep(10)
+        everyones_music.reset_class_defaults()
         everyones_music.query_list(playlist_in)
         everyones_music.thrd()
 
     def play_playlist(self, xia):
         certain_playlist = self.test1.selection()
+        if everyones_music.is_playing is True:
+            print('calling stop on everyones_music')
+            everyones_music.stop()
         for item in certain_playlist:
             selected_playlist = self.test1.item(item, 'value')
             print(f'selected_playlist: {selected_playlist}')
@@ -830,7 +881,12 @@ class Download(tk.Frame):
             video1 = Playlist(ytlink)
             for video_main in video1.videos:
                 downloadname = playlist_mp3_fix(video_main.author, video_main.title, video_main.video_id)
-                video_sep2 = video_main.streams.get_audio_only()
+                try:
+                    video_sep2 = video_main.streams.get_audio_only()
+                except:
+                    # Needed for anti-private / age restircted videos
+                    continue
+                print('I will now continue ! (implies not private or restricted)')
                 if os.path.exists(downloadname) is True:
                     print("File already downloaded(playlist). Try something new.")
                 else:
@@ -847,7 +903,7 @@ class Download(tk.Frame):
                     urllib.request.urlretrieve(video_main.thumbnail_url, #Most effects name like Jay-Z. Where jay = title and z = artist. try to make "jay - z.mp3"
                                                file_extension_change_jpg(video_main.author, video_main.title, video_main.video_id))
                     add_to_db(video_main.author, video_main.title,
-                              video_main.video_id, video_main.description)  # This should be, and IS NOT equal to the output file .mp3
+                              video_main.video_id, video_main.description)
 
         def download_differentiate(ytlink):
             if "list=" in ytlink:
@@ -1109,8 +1165,9 @@ class active_playlist(tk.Frame):
         self.song_menu.add_cascade(label="Add to:", menu=playlist_submenu)
         self.song_menu.add_command(label="Play", command=lambda: self.play_playlist("y"))
         self.song_menu.add_command(label="Rename", command=lambda: self.popup_rename("x"))
-        self.song_menu.add_command(label="Delete", command=self.delete_multiple)
+        self.song_menu.add_command(label="Delete", command=self.differ_delete)
         self.song_menu.add_command(label="Rename Multiple", command=lambda: self.popup_rename_multiple("x"))
+        self.song_menu.add_command(label="Test type", command=self.play_specifically)
         self.playlist_title = ttk.Label(self, textvariable=global_playlist, anchor="center", background='#272c34', font=('Arial', 40))
         self.playlist_title.place(y=15, x=100)
         playlist_scroll = Scrollbar(self.playlist_frame)
@@ -1134,6 +1191,19 @@ class active_playlist(tk.Frame):
         self.playlist_table.heading('Song', text="Song", anchor=CENTER)
         self.playlist_table.heading('Album', text='Album', anchor=CENTER)
         self.playlist_table.pack(expand=True, ipady="75")
+
+    def print_name(self):
+        x = self.playlist_table.selection()
+        for y in x:
+            z = self.playlist_table.item(y, 'values')
+            print(f'z: {z}')
+
+    def play_specifically(self):
+        # Choosen song = song user wants to play
+        for y in self.playlist_table.selection():
+            chosen_song = self.playlist_table.item(y, 'values')
+            print(f'z: {chosen_song[5]} in {global_playlist.get()}')
+
 
     def shown(self, event):
         print("New thingy shown")
@@ -1197,21 +1267,43 @@ class active_playlist(tk.Frame):
     def un_query_all(self):
         self.playlist_table.delete(*self.playlist_table.get_children())
 
-    def delete_multiple(self): #Deleting should exist in a 'deleting mode', should change the background color of TREEVIEW
+    def differ_delete(self):
+        print(f'gbl in differ: {global_playlist.get()}')
+        if global_playlist.get() == 'main':
+            self.full_delete_multiple()
+        else:
+            self.half_delete_multiple()
+
+    # Deletion mode?
+    def full_delete_multiple(self):
+        print('using full delete!')
+        selection_items = self.playlist_table.selection()
+        final_chance = tk.messagebox.askokcancel(title="Are you sure?", message="This will permanently delete all"
+                                                                             " selected!")
+        if final_chance is True:
+            for item in selection_items:
+                multiple_id = (self.playlist_table.item(item)['values'])
+                self.delete_from_db(multiple_id[5], multiple_id[1])
+                self.playlist_table.delete(item)
+                os.remove(multiple_id[3])
+                os.remove(multiple_id[4])
+
+    def half_delete_multiple(self):
+        print('using half_delete!')
         selection_items = self.playlist_table.selection()
         for item in selection_items:
             multiple_id = (self.playlist_table.item(item)['values'])
-            remove_id = multiple_id[5]
-            self.delete_from_db(remove_id, multiple_id[1])
+            self.delete_from_db(multiple_id[5], multiple_id[1])
             self.playlist_table.delete(item)
-            os.remove(multiple_id[3])
-            os.remove(multiple_id[4])
 
-    def delete_from_db(self, id, song_named):
+    def delete_from_db(self, new_id, song_named):
         connect1 = sqlite3.connect('MAINPLAYLIST.sqlite')
         concur2 = connect1.cursor()
         print(f'deleting: {song_named}')
-        concur2.execute("DELETE FROM main WHERE Uniqueid=?", (id,))
+        # TODO ALWAYS DELETES FROM MAIN I THINK
+        print(f'globalplaylist: {global_playlist.get()} {type(global_playlist.get())}')
+        print(f'new_id: {new_id}')
+        concur2.execute("DELETE FROM {} WHERE Uniqueid=?".format(global_playlist.get()), (new_id,))
         connect1.commit()
         concur2.close()
 
