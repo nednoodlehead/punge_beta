@@ -417,12 +417,21 @@ class tkinter_main(tk.Tk):
                                             command=lambda: self.delete_playlist(self.playlist_menu_edit.playlist))
 
     def playlist_edit(self, playlist):
+        if playlist[0] == 'main':
+            tk.messagebox.showerror(message="That operation cannot be preformed on main")
+        else:
+            self.playlist_menu_edit_popup(playlist)
+            con = sqlite3.connect('./MAINPLAYLIST.sqlite')
+            cur = con.cursor()
         print(playlist)
+
+
+        self.refresh_playlists()
         self.query_all_playlists()
 
     def refresh_playlists(self):
         for item in self.root_frame.winfo_children():
-            # We dont want to destroy the menu widgets. We lose functionalty after deleting something!
+            # We dont want to destroy the menu widgets. We lose functionalty after deleting playlist!
             if type(item) == tkinter.Button:
                 item.destroy()
 
@@ -454,6 +463,47 @@ class tkinter_main(tk.Tk):
         finally:
             self.playlist_menu_add.grab_release()
 
+    def playlist_menu_edit_popup(self, playlistname):
+        edit_rename = Toplevel(self)
+        edit_rename.focus()
+        edit_rename.geometry("250x250+1000+400")
+        edit_rename.title("Rename playlist")
+        edit_rename.configure(background="#272c34")
+        new_playlist_name = StringVar()
+        entry_playlist = ttk.Entry(edit_rename, textvariable=new_playlist_name)
+        confirm_button = Button(edit_rename, text='Update', command=lambda:
+                                        confirm_edit_destroy(new_playlist_name.get(), playlistname))
+        confirm_button.place(y=100, x=75)
+        entry_playlist.place(y=75, x=75)
+        entry_playlist.insert(END, playlistname)
+        entry_playlist.bind("<Return>", lambda e: confirm_edit_destroy(new_playlist_name.get(), playlistname))
+
+        def confirm_edit_destroy(new, old):
+            self.update_table_name(self.underscore_replace(new), old)
+            edit_rename.destroy()
+            edit_rename.update()
+
+
+    def underscore_replace(self, to_replace):
+        new_str = to_replace.replace(" ", "_")
+        return new_str
+
+    def update_table_name(self, new_playlist, old_playlist):
+        con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
+        cur1 = con1.cursor()
+        print(f'new {new_playlist}, old: {old_playlist}')
+        cur1.execute("ALTER TABLE {} RENAME to {}".format(old_playlist[0], new_playlist))
+        con1.commit()
+        self.refresh_playlists()
+        self.query_all_playlists()
+
+    def playlist_menu_popup(self, event, playlist_name):
+        try:
+            self.playlist_menu_edit.tk_popup(event.x_root, event.y_root)
+            self.playlist_menu_edit.playlist = playlist_name
+        finally:
+            self.playlist_menu_edit.grab_release()
+
     def create_new_table(self):
         popup_rename_window = Toplevel(self)
         popup_rename_window.geometry("250x250+850+275")
@@ -474,6 +524,7 @@ class tkinter_main(tk.Tk):
         def create_playlist_combine(play_enter):
             table_backend(underscore_replace(play_enter))
             destroy_popup("none lol")
+
         def destroy_popup(event):
             popup_rename_window.destroy()
             popup_rename_window.update()
@@ -504,15 +555,9 @@ class tkinter_main(tk.Tk):
             new_button.place(x=0, y=default_y)
             new_button.update()
             new_button.bind("<Button-3>", lambda e, playlist_name=playlist_name:
-                                          self.playlist_menu_edit_popup(e, playlist_name))
+                                          self.playlist_menu_popup(e, playlist_name))
             default_y = default_y + new_button.winfo_height() + 10
 
-    def playlist_menu_edit_popup(self, event, playlist_name):
-        try:
-            self.playlist_menu_edit.tk_popup(event.x_root, event.y_root)
-            self.playlist_menu_edit.playlist = playlist_name
-        finally:
-            self.playlist_menu_edit.grab_release()
 
 
     def play_check(self, active_playlist):
@@ -672,8 +717,6 @@ class Main_page(tk.Frame):
         finally:
             self.song_menu.grab_release()
 
-    def popup_add_playlist(self):
-        print("POPUP ADD PLAYLIST")
     def popup_rename(self, event):
         popup_rename_window = Toplevel(self)
         popup_rename_window.geometry("250x250+125+235") #TODO styling to not look terrible lol
