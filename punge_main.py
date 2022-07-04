@@ -1,3 +1,4 @@
+import tkinter
 from tkinter import ttk
 from tkinter import *
 from tkinter import messagebox
@@ -406,15 +407,52 @@ class tkinter_main(tk.Tk):
         global_hotkey.register(['control', 'up'], callback=static_increment_bind)
         global_hotkey.register(['control', 'down'], callback=static_decrease_bind)
         self.query_all_playlists()
-        self.playlist_menu = Menu(self.root_frame, tearoff=0)
-        self.playlist_menu.add_command(label="New..", command=self.create_new_table)
-        self.root_frame.bind("<Button-3>", self.popup_event)
+        self.playlist_menu_add = Menu(self.root_frame, tearoff=0)
+        self.playlist_menu_add.add_command(label="New..", command=self.create_new_table)
+        self.root_frame.bind("<Button-3>", self.playlist_menu_add_popup)
+        self.playlist_menu_edit = Menu(self.root_frame, tearoff=0)
+        self.playlist_menu_edit.add_command(label="Edit",
+                                            command=lambda: self.playlist_edit(self.playlist_menu_edit.playlist))
+        self.playlist_menu_edit.add_command(label="Delete",
+                                            command=lambda: self.delete_playlist(self.playlist_menu_edit.playlist))
 
-    def popup_event(self, event):
+    def playlist_edit(self, playlist):
+        print(playlist)
+        self.query_all_playlists()
+
+    def refresh_playlists(self):
+        for item in self.root_frame.winfo_children():
+            # We dont want to destroy the menu widgets. We lose functionalty after deleting something!
+            if type(item) == tkinter.Button:
+                item.destroy()
+
+
+    def delete_playlist(self, playlist):
+        if playlist[0] == 'main':
+            tk.messagebox.showerror(message="That operation cannot be preformed on main")
+        else:
+            con = sqlite3.connect("./MAINPLAYLIST.sqlite")
+            cur = con.cursor()
+            cur.execute("SELECT Title from {}".format(playlist[0],))
+            x = cur.fetchone()
+            if x is None:
+                cur.execute("DROP TABLE {}".format(playlist[0]))
+                con.commit()
+            else:
+                final_chance = tk.messagebox.askokcancel(title="Are you sure?", message="Are you sure you want to delete? \n This playlist"
+                                                                         "contains data")
+                if final_chance is True:
+                    cur.execute("DROP TABLE {}".format(playlist[0]))
+                    con.commit()
+        print(playlist[0])
+        self.refresh_playlists()
+        self.query_all_playlists()
+
+    def playlist_menu_add_popup(self, event):
         try:
-            self.playlist_menu.tk_popup(event.x_root, event.y_root)
+            self.playlist_menu_add.tk_popup(event.x_root, event.y_root)
         finally:
-            self.playlist_menu.grab_release()
+            self.playlist_menu_add.grab_release()
 
     def create_new_table(self):
         popup_rename_window = Toplevel(self)
@@ -465,18 +503,26 @@ class tkinter_main(tk.Tk):
             playlist_option.add_command(label='test', command=lambda: self.play_check(playlist_name))
             new_button.place(x=0, y=default_y)
             new_button.update()
-            new_button.bind("<Mouse-3>", )
+            new_button.bind("<Button-3>", lambda e, playlist_name=playlist_name:
+                                          self.playlist_menu_edit_popup(e, playlist_name))
             default_y = default_y + new_button.winfo_height() + 10
 
-    def play_check(self, active_playlist, event=0):
+    def playlist_menu_edit_popup(self, event, playlist_name):
+        try:
+            self.playlist_menu_edit.tk_popup(event.x_root, event.y_root)
+            self.playlist_menu_edit.playlist = playlist_name
+        finally:
+            self.playlist_menu_edit.grab_release()
+
+
+    def play_check(self, active_playlist):
         print(active_playlist)
-# TODO ok so each button needs to have its own command. Either through the loop giving it one or a parameter
-# TODO being passed in (name of button convert to sql playlist) so playlists can be edited / modified.
+
     def playlist_popup(self, event):
         try:
-            self.playl.tk_popup(event.x_root, event.y_root)
+            self.playlist_menu_add.tk_popup(event.x_root, event.y_root)
         finally:
-            self.song_menu.grab_release()
+            self.playlist_menu_add.grab_release()
 
 
     def switch_to_playlist(self, playlist_in):
