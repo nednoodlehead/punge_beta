@@ -136,6 +136,8 @@ class music_player:
         self.exited.clear()
 
     def thrd(self):
+        print("THRD!")
+        self.is_playing = True
         self.exited.clear()
         self.thr = KThread(target=self.testsong)
         self.thr.start()
@@ -146,11 +148,14 @@ class music_player:
         print("end of say_Hi")
 
     def thud(self):
+        print("called thud!")
+
         self.thr = KThread(target=self.testsong)
         self.thr.start()
         self.thr.join()
 
     def thud2(self):
+        self.is_playing = True
         self.thr = KThread(target=self.resume)
         self.thr.start()
         print(f'Should be true 1 : {self.thr.is_alive()}')
@@ -180,7 +185,7 @@ class music_player:
 
 
     def main_music_loop(self):
-        self.is_playing = True
+        #self.is_playing = True
         self.print_debug("main_music_loop")
         # Used to reset the flag to neutral. Redundant for 'first time play' but useful after a pause
         # self.exited.clear()
@@ -698,7 +703,7 @@ class Main_page(tk.Frame):
             for super_row in row:
                 new_row = super_row.replace("_", " ")
                 self.test1.insert('', tk.END, values=(new_row,))
-                print(f'row: {super_row}')
+                #print(f'row: {super_row}')
 
         con1.close()
 
@@ -866,24 +871,14 @@ class Currently_playing(tk.Frame):
         #    mei = Label(self, image=opened_thumb)
         #    mei.place(x=200, y=200)
 
-
-
-        def play_music_multithread():
-            everyones_music.inner_playing_loop = True
-            music_thread = threading.Thread(target=play_music)
-            music_thread.start()
-
-        def play_music():
-            everyones_music.thrd()
-
-        play_button = ttk.Button(self, text="Play", command=play_music_multithread) #added args of selected playlist
+        play_button = ttk.Button(self, text="Play", command=everyones_music.thd) #added args of selected playlist
         play_button.place(relx=.5, rely=.8)
 
         slider = ttk.Scale(self, from_=0.01, to=0.2, orient="horizontal", command=volume_slider_controller)
         slider.place(rely=.5, relx=.5)
 
-        resume_button = ttk.Button(self, text="Resume / Pause", command=everyones_music.pause_play_toggle)
-        resume_button.place(relx=.5, rely=.75)
+        self.resume_button = ttk.Button(self, text="TESTING BUTTON", command=self.play_pause_toggle)
+        self.resume_button.place(relx=.5, rely=.75)
 
         mute_button = ttk.Button(self, text="mute", command=volume_mute)
         mute_button.place(rely=.5, relx=.65)
@@ -893,6 +888,27 @@ class Currently_playing(tk.Frame):
 
         skip_backwards = ttk.Button(self, text="Skip back", command=everyones_music.skip_backwards)
         skip_backwards.place(rely=.85, relx=.25)
+
+    def resume_pause_update(self):
+        self.play_pause_toggle()
+        everyones_music.pause_play_toggle()
+        self.play_pause_toggle()
+
+
+    def play_update(self):
+        everyones_music.query_list(global_playlist.get())
+        everyones_music.thrd()
+
+
+    def play_pause_toggle(self):
+        print(f'is_playing: {everyones_music.is_playing}. pause_bool: {everyones_music.pause_bool}')
+        if not everyones_music.is_playing and not everyones_music.pause_bool:
+            self.resume_button.configure(text="Play", command=everyones_music.thrd)
+        elif not everyones_music.is_playing and everyones_music.pause_bool is True:
+            self.resume_button.configure(text="Resume", command=self.resume_pause_update)
+        else:
+            self.resume_button.configure(text="Stop", command=self.resume_pause_update)
+
 
 
 class Settings(tk.Frame):
@@ -1243,6 +1259,8 @@ class active_playlist(tk.Frame):
         button_download.place(x=0, y=175)
         button_settings.place(x=0, y=200)
         button_mp4.place(x=0, y=225)
+        play_playlist_button = Button(self, text="play!", command=self.play_playlist)
+        play_playlist_button.place(x=250, y=25)
         self.bind("<<ShowFrame>>", self.on_page_begin)
         print(f'global playlist right before used: {global_playlist}')
         self.playlist_frame = Frame(self)
@@ -1280,12 +1298,26 @@ class active_playlist(tk.Frame):
         self.playlist_table.heading('Song', text="Song", anchor=CENTER)
         self.playlist_table.heading('Album', text='Album', anchor=CENTER)
         self.playlist_table.pack(expand=True, ipady="75")
+        self.new_frame = lambda: controller.show_frame(Currently_playing)
 
-    def print_name(self):
-        x = self.playlist_table.selection()
-        for y in x:
-            z = self.playlist_table.item(y, 'values')
-            print(f'z: {z}')
+    def play_playlist(self):
+        print(f'is_playing: {everyones_music.is_playing}')
+        if everyones_music.is_playing is True:
+            everyones_music.stop()
+            # time.sleep(.5) needed cause everyones_music.is_playing doesn't update in time..
+            time.sleep(.5)
+            everyones_music.reset_class_defaults()
+            everyones_music.query_list(global_playlist.get())
+            everyones_music.thrd()
+            self.new_frame()
+        else:
+            everyones_music.reset_class_defaults()
+            print(f'global playlistrn: {global_playlist.get()}')
+            everyones_music.query_list(global_playlist.get())
+            everyones_music.thrd()
+            self.new_frame()
+
+
 
     def play_specifically(self):
         # Choosen song = song user wants to play
@@ -1311,7 +1343,7 @@ class active_playlist(tk.Frame):
         # from 'main' need to inherit from a selelection from mainpage that includes a playlistname
         rows = cur1.fetchall()
         for row in rows:
-            print(f'row: {row}')
+            #print(f'row: {row}')
             self.playlist_table.insert('', tk.END, values=row)
         con1.close()
 
