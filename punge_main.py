@@ -247,7 +247,7 @@ class music_player:
         self.sleeptimer = 0
         self.current_playlist = []
         self.resume_list = []
-        self.shuffle = True
+        #self.shuffle = False
         self.exited = threading.Event()
         self.coming_from_loop = True
         self.pause_bool = False
@@ -368,7 +368,9 @@ Solution:
         for each in rows:
             imported_music = import_music(*each)
             big_ol_list.append(imported_music)
-        random.shuffle(big_ol_list)
+        print(f'self.shuffle: {self.shuffle}')
+        if self.shuffle is True:
+            random.shuffle(big_ol_list)
         self.current_playlist = big_ol_list
 
 
@@ -880,6 +882,9 @@ class Currently_playing(tk.Frame):
         self.resume_button = ttk.Button(self, text="TESTING BUTTON", command=self.play_pause_toggle)
         self.resume_button.place(relx=.5, rely=.75)
 
+        self.shuffle_button = ttk.Button(self, text="Shuffle (off)", command=self.shuffle_toggle)
+        self.shuffle_button.place(x=250, y=400)
+
         mute_button = ttk.Button(self, text="mute", command=volume_mute)
         mute_button.place(rely=.5, relx=.65)
 
@@ -888,6 +893,7 @@ class Currently_playing(tk.Frame):
 
         skip_backwards = ttk.Button(self, text="Skip back", command=everyones_music.skip_backwards)
         skip_backwards.place(rely=.85, relx=.25)
+        self.shuffle_toggle()  # Called so it defaults properly
 
     def resume_pause_update(self):
         self.play_pause_toggle()
@@ -908,6 +914,15 @@ class Currently_playing(tk.Frame):
             self.resume_button.configure(text="Resume", command=self.resume_pause_update)
         else:
             self.resume_button.configure(text="Stop", command=self.resume_pause_update)
+
+    def shuffle_toggle(self):
+        print(f'shuffle: {everyones_music.shuffle}')
+        if everyones_music.shuffle is True:
+            self.shuffle_button.configure(text="Shuffle (turn off)")
+            everyones_music.shuffle = False
+        else:
+            self.shuffle_button.configure(text="shuffle (Turn on)")
+            everyones_music.shuffle = True
 
 
 
