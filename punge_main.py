@@ -71,7 +71,7 @@ class music_player:
     song = None
     start_time = 0
     now_time = 0
-    thr = None
+    thr = threading.Thread()
     song_count = 0
     sleeptimer = 0
     current_playlist = []
@@ -146,9 +146,9 @@ class music_player:
         self.exited.clear()
 
     def thrd(self):
-        if self.is_playing is True:
+        if self.thr.is_alive() is True:
             everyones_music.stop()
-            time.sleep(.5)
+            #time.sleep(.5)
             everyones_music.reset_class_defaults()
             print("THRD!")
             self.is_playing = True
@@ -254,7 +254,9 @@ class music_player:
         print(self.exited)
         print(self.coming_from_loop)
         print(self.pause_bool)
-        print(self.is_playing)
+        # print(self.is_playing) is_playing is now legacy. thr.is_alive() is 9x more consistant
+        print(f'is thread active?: {self.thr.is_alive()}')
+        print(f'is playing: {self.is_playing}')
         print("-----DEBUG----")
 
     def reset_class_defaults(self):
@@ -264,7 +266,7 @@ class music_player:
         self.start_time = 0
         self.now_time = 0
         self.thr = None
-        self.song_count = 0
+        #self.song_count = 0
         self.sleeptimer = 0
         # self.current_playlist = []
         self.resume_list = []
@@ -816,7 +818,7 @@ class Main_page(tk.Frame):
 
     def playmusic(self, playlist_in):
         print(f'playmusic: is_playing: {everyones_music.is_playing}')
-        if everyones_music.is_playing is True:
+        if everyones_music.thr.is_alive() is True:
             everyones_music.stop()
             time.sleep(10)
         everyones_music.reset_class_defaults()
@@ -825,7 +827,7 @@ class Main_page(tk.Frame):
 
     def play_playlist(self, xia):
         certain_playlist = self.test1.selection()
-        if everyones_music.is_playing is True:
+        if everyones_music.thr.is_alive() is True:
             print('calling stop on everyones_music')
             everyones_music.stop()
         for item in certain_playlist:
@@ -928,10 +930,9 @@ class Currently_playing(tk.Frame):
 
 
     def play_pause_toggle(self):
-        print(f'is_playing: {everyones_music.is_playing}. pause_bool: {everyones_music.pause_bool}')
-        if not everyones_music.is_playing and not everyones_music.pause_bool:
+        if not everyones_music.thr.is_alive() and not everyones_music.pause_bool:
             self.resume_button.configure(text="Play", command=everyones_music.thrd)
-        elif not everyones_music.is_playing and everyones_music.pause_bool is True:
+        elif not everyones_music.thr.is_alive() and everyones_music.pause_bool is True:
             self.resume_button.configure(text="Resume", command=self.resume_pause_update)
         else:
             self.resume_button.configure(text="Stop", command=self.resume_pause_update)
@@ -1337,7 +1338,7 @@ class active_playlist(tk.Frame):
         self.new_frame = lambda: controller.show_frame(Currently_playing)
 
     def play_playlist(self):
-        print(f'is_playing: {everyones_music.is_playing}')
+        print(f'is_playing: {everyones_music.thr.is_alive()}')
         #everyones_music.reset_class_defaults()
         print(f'global playlistrn: {global_playlist.get()}')
         everyones_music.query_list(global_playlist.get())
@@ -1354,9 +1355,8 @@ class active_playlist(tk.Frame):
             print(everyones_music.current_playlist)
             for entry in everyones_music.current_playlist:
                 if entry.Uniqueid == chosen_song[5]:
-                    print(f'entry found: {entry.Title} {entry.Author}')
-                    everyones_music.current_playlist.remove(entry)
-                    everyones_music.current_playlist.insert(0, entry)
+                    new_song = everyones_music.current_playlist.index(entry)
+                    everyones_music.song_count = new_song
         everyones_music.thrd()
 
 
