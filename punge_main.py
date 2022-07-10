@@ -90,7 +90,17 @@ class music_player:
         else:
             self.pause_bool = True
             everyones_music.stop()
-
+    """
+    Right now, an important part of what makes punge work ok is the class attirbutes start_time & now_time. These are
+    essential for the music_player class to work properly.
+    It mainly works off of having a time.sleep() (But its a different module or whatever, one that can be interupted) 
+    and it will sleep for the entire song. The way it currently works, is that each time a pause occurs it will log the
+    current time and time of last pause, then place it into list and yada yada. In short, it needs to be remade into
+    a function that will go down while is_playing is true, and pause otherwise. This should fix the long-period-resume
+    bug where resuming music after 20+minutes will cause a threading excepting and crash. it will also reduce load time,
+    as it will be able to reproduce the audiosegment after the pause is called, because it will know the time to resume 
+    at immediately after. Only downside is pausing and resuming repedatly will cause problems in terms of preformance
+    """
 
 
     def thd(self):
@@ -136,11 +146,21 @@ class music_player:
         self.exited.clear()
 
     def thrd(self):
-        print("THRD!")
-        self.is_playing = True
-        self.exited.clear()
-        self.thr = KThread(target=self.testsong)
-        self.thr.start()
+        if self.is_playing is True:
+            everyones_music.stop()
+            time.sleep(.5)
+            everyones_music.reset_class_defaults()
+            print("THRD!")
+            self.is_playing = True
+            self.exited.clear()
+            self.thr = KThread(target=self.testsong)
+            self.thr.start()
+        else:
+            print("THRD!")
+            self.is_playing = True
+            self.exited.clear()
+            self.thr = KThread(target=self.testsong)
+            self.thr.start()
 
     def say_hi(self):
         print("HI from say_hi()")
@@ -238,6 +258,7 @@ class music_player:
         print("-----DEBUG----")
 
     def reset_class_defaults(self):
+        print('reset defaults called')
         #self.stop()
         self.song = None
         self.start_time = 0
@@ -245,9 +266,9 @@ class music_player:
         self.thr = None
         self.song_count = 0
         self.sleeptimer = 0
-        self.current_playlist = []
+        # self.current_playlist = []
         self.resume_list = []
-        #self.shuffle = False
+        # Shuffle not included rn
         self.exited = threading.Event()
         self.coming_from_loop = True
         self.pause_bool = False
@@ -1317,20 +1338,11 @@ class active_playlist(tk.Frame):
 
     def play_playlist(self):
         print(f'is_playing: {everyones_music.is_playing}')
-        if everyones_music.is_playing is True:
-            everyones_music.stop()
-            # time.sleep(.5) needed cause everyones_music.is_playing doesn't update in time..
-            time.sleep(.5)
-            everyones_music.reset_class_defaults()
-            everyones_music.query_list(global_playlist.get())
-            everyones_music.thrd()
-            self.new_frame()
-        else:
-            everyones_music.reset_class_defaults()
-            print(f'global playlistrn: {global_playlist.get()}')
-            everyones_music.query_list(global_playlist.get())
-            everyones_music.thrd()
-            self.new_frame()
+        #everyones_music.reset_class_defaults()
+        print(f'global playlistrn: {global_playlist.get()}')
+        everyones_music.query_list(global_playlist.get())
+        everyones_music.thrd()
+        self.new_frame()
 
 
 
@@ -1339,6 +1351,13 @@ class active_playlist(tk.Frame):
         for y in self.playlist_table.selection():
             chosen_song = self.playlist_table.item(y, 'values')
             print(f'z: {chosen_song[5]} in {global_playlist.get()}')
+            print(everyones_music.current_playlist)
+            for entry in everyones_music.current_playlist:
+                if entry.Uniqueid == chosen_song[5]:
+                    print(f'entry found: {entry.Title} {entry.Author}')
+                    everyones_music.current_playlist.remove(entry)
+                    everyones_music.current_playlist.insert(0, entry)
+        everyones_music.thrd()
 
 
     def shown(self, event):
@@ -1348,6 +1367,9 @@ class active_playlist(tk.Frame):
         self.playlist_table.delete(*self.playlist_table.get_children())
         self.new_query_all("event")
         print(f"requireed! global_playlist: {global_playlist}")
+        # query is done so that playing a specific song is allowed to pick and choose from the list of objects
+        # and remove the one selected, and place at begining
+        everyones_music.query_list(global_playlist.get())
 
     def new_query_all(self, event):
         con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
