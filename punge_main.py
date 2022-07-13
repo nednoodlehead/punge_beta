@@ -65,7 +65,8 @@ class KThread(threading.Thread):
     def kill(self):
         self.killed = True
 
-
+pydub.AudioSegment.converter = r"F:\Support files\Super random\the crossfade\ffmpeg-master-latest-win64-gpl-shared\ffmpeg-master-latest-win64-gpl-shared\bin\ffmpeg.exe"
+pydub.AudioSegment.ffprobe = r"F:\Support files\Super random\the crossfade\ffmpeg-master-latest-win64-gpl-shared\ffmpeg-master-latest-win64-gpl-shared\bin\ffprobe.exe"
 
 class music_player:
     song = None
@@ -81,6 +82,10 @@ class music_player:
     coming_from_loop = True
     pause_bool = False
     is_playing = False
+    # Shuffle switch is for when a playlist is queried and user either goes from shuffle -> non-shuffle or vice versa
+    # Need to be able to detect if shuffle was swapped. if shuffle was on: get current song's id. reqeury playlist and
+    # Go to that position. if shuffle is off: next song will shuffle.
+    shuffle_switch = False
 
     def pause_play_toggle(self, extra=None):
         # If it is pausued:
@@ -119,6 +124,8 @@ class music_player:
             self.start_time = time.time()
             time.sleep(10)
 
+
+
     def stop_timer(self):
         self.now_time = time.time() - self.start_time
         self.now_time = round(self.now_time, 3)
@@ -147,9 +154,10 @@ class music_player:
 
     def thrd(self):
         if self.thr.is_alive() is True:
+            print("SONG IS ALREADY PLAYING. NOW STOPPING IT")
             everyones_music.stop()
-            #time.sleep(.5)
-            everyones_music.reset_class_defaults()
+            time.sleep(.5)
+            #everyones_music.reset_class_defaults()
             print("THRD!")
             self.is_playing = True
             self.exited.clear()
@@ -239,6 +247,11 @@ class music_player:
         print("begin sleep")
         time.sleep(10)
         print("end sleep!")
+
+    def list_debug(self):
+        print("PLAYLIST:")
+        for item in self.current_playlist[self.song_count:self.song_count + 5]:
+            print(item.Title)
 
     def debug(self):
         print("-----DEBUG----")
@@ -394,7 +407,47 @@ Solution:
         print(f'self.shuffle: {self.shuffle}')
         if self.shuffle is True:
             random.shuffle(big_ol_list)
+        elif self.shuffle_switch is True:
+            self.shuffle_switch = False
+            index_id = self.current_playlist[self.song_count]
+            for entry in self.current_playlist:
+                if entry.Uniqueid == index_id.Uniqueid:
+                    new_song = self.current_playlist.index(entry)
+                    self.song_count = new_song
         self.current_playlist = big_ol_list
+
+    def update_playlist(self):
+        if self.shuffle is True:
+            self.scramble_playlist()
+            self.shuffle = False
+        else:
+            self.reassemble_list()
+            self.shuffle = True
+
+
+    def scramble_playlist(self):
+        random.shuffle(self.current_playlist)
+
+
+    def reassemble_list(self):
+        # Grabs the id of current song to begin at.
+        try:
+            index_id = self.current_playlist[self.song_count - 1].Uniqueid
+        except IndexError:
+            self.query_list('main')
+            index_id = self.current_playlist[0].Uniqueid
+        print(f"Should be current song: {self.current_playlist[self.song_count].Title}")
+        # turns self.current_playlist into an unscrambled version
+        self.query_list(global_playlist.get())
+        # Iterate over each entry of said playlist
+        for entry in self.current_playlist:
+            # Find where the current song sits in the unqueried list, set song_count to that number
+            if entry.Uniqueid == index_id:
+                print(f"current song to grab is: {entry.Title}")
+                x = self.current_playlist.index(entry)
+                # +1 required because when index is got, it will get the index of the active, playing song. we want it
+                # to play the next song up.
+                self.song_count = x + 1
 
 
 everyones_music = music_player()
@@ -420,8 +473,8 @@ class tkinter_main(tk.Tk):
         main_page_frame.grid_columnconfigure(0, weight=1)
         right_frame = ttk.Style()
         right_frame.configure('TFrame', background='#262626')
-        tk.Button(self, text='DEBUG !',command=everyones_music.debug).place(x=100, y=10)
-
+        tk.Button(self, text='DEBUG !', command=everyones_music.debug).place(x=100, y=10)
+        tk.Button(self, text='Playlist debug', command=everyones_music.list_debug).place(x=100, y=40)
         self.root_frame = ttk.Frame(self, style='TFrame', height=1000, width=200)
         self.root_frame.place(x=1050, y=0)
         self.frames = {}
@@ -431,6 +484,7 @@ class tkinter_main(tk.Tk):
             frame.grid(row=0, column=0, sticky="nsew")
         self.show_frame(Main_page)
         # Global hotkeys for ease of use :D. Should be adjustable and configurable
+        # binds also need to be able to configure buttons to change states. Like text=shuffle or text=not shuffle.
         global_hotkey.register(['control', 'right'], callback=everyones_music.skip_forwards)
         global_hotkey.register(['control', 'left'], callback=everyones_music.skip_backwards)
         global_hotkey.register(['control', 'end'], callback=everyones_music.pause_play_toggle)
@@ -453,7 +507,6 @@ class tkinter_main(tk.Tk):
             self.playlist_menu_edit_popup(playlist)
             con = sqlite3.connect('./MAINPLAYLIST.sqlite')
             cur = con.cursor()
-        print(playlist)
 
 
         self.refresh_playlists()
@@ -652,11 +705,11 @@ class Main_page(tk.Frame):
         button_current = Button(self, text="Currently playing", command=lambda: controller.show_frame(Currently_playing))
         button_mp4 = Button(self, text="Video downloader", command=lambda: controller.show_frame(mp4_downloader))
         button_main.place(x=0, y=125)
-        button_current.place(x=0,y=150)
+        button_current.place(x=0, y=150)
         button_download.place(x=0, y=175)
-        button_settings.place(x=0,y=200)
+        button_settings.place(x=0, y=200)
         button_refresh = Button(self, text='Refresh', command=self.refresh_query)
-        button_refresh.place(x=585,y=10)
+        button_refresh.place(x=585, y=10)
         button_mp4.place(x=0, y=225)
         button_make_main_table = Button(self, text="TRY NEW PLAYLIST", command=self.create_new_table)
         button_make_main_table.place(relx=.5, rely=.6)
@@ -823,6 +876,7 @@ class Main_page(tk.Frame):
             time.sleep(10)
         everyones_music.reset_class_defaults()
         everyones_music.query_list(playlist_in)
+        print("playmusic")
         everyones_music.thrd()
 
     def play_playlist(self, xia):
@@ -916,6 +970,7 @@ class Currently_playing(tk.Frame):
 
         skip_backwards = ttk.Button(self, text="Skip back", command=everyones_music.skip_backwards)
         skip_backwards.place(rely=.85, relx=.25)
+        everyones_music.shuffle = True
         self.shuffle_toggle()  # Called so it defaults properly
 
     def resume_pause_update(self):
@@ -923,28 +978,31 @@ class Currently_playing(tk.Frame):
         everyones_music.pause_play_toggle()
         self.play_pause_toggle()
 
-
     def play_update(self):
         everyones_music.query_list(global_playlist.get())
+        print("CALLED BY play_update")
         everyones_music.thrd()
-
 
     def play_pause_toggle(self):
         if not everyones_music.thr.is_alive() and not everyones_music.pause_bool:
             self.resume_button.configure(text="Play", command=everyones_music.thrd)
-        elif not everyones_music.thr.is_alive() and everyones_music.pause_bool is True:
+        elif everyones_music.pause_bool is True:
             self.resume_button.configure(text="Resume", command=self.resume_pause_update)
         else:
+            print(f'thr_isalive {everyones_music.thr.is_alive()} pausebool: {everyones_music.pause_bool}')
             self.resume_button.configure(text="Stop", command=self.resume_pause_update)
 
     def shuffle_toggle(self):
+        # This controls the entire shuffle system. everytime this button is clicked it will either scramble playlist
+        # or find the index of the song relative to the unshuffled playlist and start from there.
         print(f'shuffle: {everyones_music.shuffle}')
         if everyones_music.shuffle is True:
+            print("playlist scrambled!")
             self.shuffle_button.configure(text="Shuffle (turn off)")
-            everyones_music.shuffle = False
         else:
+            print("list reassemabled!")
             self.shuffle_button.configure(text="shuffle (Turn on)")
-            everyones_music.shuffle = True
+        everyones_music.update_playlist()
 
 
 
@@ -981,8 +1039,8 @@ class Download(tk.Frame):
         button_mp4.place(x=0, y=225)
 
         # -----Listism-----#
-        elite_fileloc = "F:/Files at random/MUSICAL/Downloads/"  # These will be detirmined by user eventualy
-        elite_fileloc_thumbnail = "F:/Files at random/MUSICAL/thumbnails/"
+        elite_fileloc = "F:/Punge Downloads/Downloads/"  # These will be detirmined by user eventualy
+        elite_fileloc_thumbnail = "F:/Punge Downloads/thumbnails/"
         auto_album_recognize = "Provided"
         forbidden_character = "<>:\"/\|?*"
         ytlink_strvar = tk.StringVar()
@@ -1342,6 +1400,7 @@ class active_playlist(tk.Frame):
         #everyones_music.reset_class_defaults()
         print(f'global playlistrn: {global_playlist.get()}')
         everyones_music.query_list(global_playlist.get())
+        print("CALLED BY play_playlist")
         everyones_music.thrd()
         self.new_frame()
 
@@ -1357,6 +1416,7 @@ class active_playlist(tk.Frame):
                 if entry.Uniqueid == chosen_song[5]:
                     new_song = everyones_music.current_playlist.index(entry)
                     everyones_music.song_count = new_song
+        print("CALLED BY play_specifically")
         everyones_music.thrd()
 
 
