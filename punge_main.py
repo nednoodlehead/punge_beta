@@ -507,7 +507,6 @@ class tkinter_main(tk.Tk):
             self.playlist_menu_edit_popup(playlist)
             con = sqlite3.connect('./MAINPLAYLIST.sqlite')
             cur = con.cursor()
-        print(playlist)
 
 
         self.refresh_playlists()
