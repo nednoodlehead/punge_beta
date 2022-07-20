@@ -409,6 +409,21 @@ class music_player:
     at immediately after. Only downside is pausing and resuming repedatly will cause problems in terms of preformance
     """
 
+    def kthread_check(self):
+        print('kthread called')
+        k_count = []
+        # Checks over every thread
+        for thread in threading.enumerate():
+            # Filters only Kthreads. KThreads play music only
+            if type(thread) == KThread:
+                # place each Kthread into the list
+                k_count.append(thread)
+            # Kill all Kthreads besides last. This allows the most recent thread began to 'win' and play
+            for die_thread in k_count[:-1]:
+                print(f'killing thread: {die_thread}')
+                die_thread.kill()
+
+
 
     def thd(self):
         thr = threading.Thread(target=self.start_timer)
@@ -464,6 +479,7 @@ class music_player:
             self.exited.clear()
             self.thr = KThread(target=self.testsong)
             self.thr.start()
+        self.kthread_check()
 
 
 
@@ -556,6 +572,11 @@ class music_player:
         print("###THR DEBUG###")
         for th in threading.enumerate():
             print(f'thread: {th}')
+            print(f'type: {type(th)}')
+        print('kthreads only:')
+        for threa in threading.enumerate():
+            if type(threa) == KThread:
+                print(f'kthrad locatied::: {threa}')
         print("***JSON DEBUG***")
         print(self.controller.shared_data)
         print("-----DEBUG----")
