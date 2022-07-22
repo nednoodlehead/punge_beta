@@ -86,6 +86,10 @@ class tkinter_main(tk.Tk):
         everyones_music.app_launch_setup_thr()
         # self.properclose required for the app to stop playing music on exit
         self.protocol("WM_DELETE_WINDOW", self.proper_close)
+        # These bindings replace the regular alt-f4 to keep the json caching accurate. Without them, an alt-f4 would
+        # Not behave properly
+        self.bind("<Alt_L>F4", self.proper_close)
+        self.bind("<Alt_R>F4", self.proper_close)
         main_page_frame = tk.Frame(self)
         main_page_frame.pack(side="top", fill="both", expand=True)
         main_page_frame.grid_rowconfigure(0, weight=1)
@@ -104,12 +108,16 @@ class tkinter_main(tk.Tk):
         self.bottom_frame_play = tk.Button(self.bottom_frame, text='Play', command=self.play_with_cooldown)
         self.bottom_frame_play.place(x=300, y=30)
         print(self.shared_data)
-        self.bottom_frame_song = tk.Label(self.bottom_frame, text="placeholder_song")
-        self.bottom_frame_album = tk.Label(self.bottom_frame, text="placeholder_album")
-        self.bottom_frame_author = tk.Label(self.bottom_frame, text='playholder_author')
-        self.bottom_frame_song.place(x=350, y=50)
-        self.bottom_frame_album.place(x=450, y=50)
-        self.bottom_frame_author.place(x=675, y=50)
+        bottom_frame_text_style = ttk.Style()
+        bottom_frame_text_style.configure('bottom.TLabel', background='#1b1b1c', foreground='#9e9e9e')
+        self.bottom_frame_song = ttk.Label(self.bottom_frame, text="", style='bottom.TLabel')
+        self.bottom_frame_album = ttk.Label(self.bottom_frame, text="", style='bottom.TLabel')
+        self.bottom_frame_author = ttk.Label(self.bottom_frame, text="", style='bottom.TLabel')
+        self.bottom_frame_song.place(x=110, y=10)
+        self.bottom_frame_album.place(x=110, y=50)
+        self.bottom_frame_author.place(x=110, y=30)
+
+        #self.bottom_frame_play_pause = tk.Button(self.bottom_frame, text='play', command=)
 
         self.frames = {}
         for each_frame in (Main_page, Currently_playing, Settings, Download, mp4_downloader, active_playlist):
@@ -133,6 +141,7 @@ class tkinter_main(tk.Tk):
                                             command=lambda: self.playlist_edit(self.playlist_menu_edit.playlist))
         self.playlist_menu_edit.add_command(label="Delete",
                                             command=lambda: self.delete_playlist(self.playlist_menu_edit.playlist))
+        everyones_music.flicker.set()
     def send_update_shuffle(self):
         pass
 
@@ -361,6 +370,11 @@ class music_player:
     # Goal of this function is to run when app is launched, and 'restore' previous session playlist & song. this will
     # reduce the need for special causes around 'no song selected / no playlist selected'. and we will always be working
     # with valid objects at all times
+    flicker = threading.Event()
+    flicker.clear()
+    # Flicker is used to prevent a race condition. When app_launch_startup begins, it opens on a new thread and tries
+    # to set self.controller.send_update_labels, which can occur before the labels inside have been initialized. This
+    # is apparent because when a time.sleep() is added to app_launch_setup, an error does not occur
 
     def app_launch_setup_thr(self):
         thr = threading.Thread(target=self.app_launch_setup)
@@ -372,13 +386,13 @@ class music_player:
             # Sets the shared_data dict = to the json file
             self.controller.shared_data = x
             print(f'app_lauch sets controller.shared_data= {x}')
-            # Shuffle has to be stored as a string, so this removes that string-ness? so shuffle can be read as True
-            # and not 'True'
+            self.flicker.wait()
             print(f'self.shuffle: {x["shuffle"]} ')
             self.shuffle = x['shuffle']
             # Queries the self.current_playlist, takes into account the status of self.shuffle
             self.query_list()
             songid = x['songid']
+            # TODO FLICKER
             for count, entry in enumerate(self.current_playlist):
                 if entry.Uniqueid == songid:
                     self.song_count = count
@@ -392,11 +406,11 @@ class music_player:
     def pause_play_toggle(self, extra=None):
         # If it is pausued:
         if self.pause_bool is True:
-            everyones_music.resume_thread()
+            self.resume_thread()
             self.pause_bool = False
         else:
             self.pause_bool = True
-            everyones_music.stop()
+            self.stop()
     """
     Right now, an important part of what makes punge work ok is the class attirbutes start_time & now_time. These are
     essential for the music_player class to work properly.
@@ -562,7 +576,7 @@ class music_player:
         print("end sleep!")
 
     def list_debug(self):
-        print(f"PLAYLIST: {self.controller.shared_data['playlist'].get()}")
+        print(f"PLAYLIST: {self.controller.shared_data['playlist']}")
         print(f'list_debug cursong: {self.controller.music_obj}')
         for item in self.current_playlist[self.song_count - 1:self.song_count + 5]:
             print(item.Title)
@@ -775,13 +789,13 @@ Solution:
         # Iterate over each entry of said playlist
         for entry in self.current_playlist:
             # Find where the current song sits in the unqueried list, set song_count to that number
-            if entry.Title == self.current_playlist[self.song_count].Title:
+            if entry.Title == self.controller.music_obj.Title:
                 print(f"entry.title: {entry.Title}")
                 print(f"current song to grab is: {entry.Title}")
                 x = self.current_playlist.index(entry)
                 # +1 required because when index is got, it will get the index of the active, playing song. we want it
                 # to play the next song up.
-                self.song_count = x
+                self.song_count = x + 1
 
 
 everyones_music = music_player()
