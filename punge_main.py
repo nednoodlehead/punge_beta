@@ -396,21 +396,23 @@ class music_player:
     # Song is used to hold the Pydub.Audiosegment used to be played.
     song = None
     # Start_time is the beginning of the loop, used in conjuction with now_time to detirmine when music is/isnt playing
-    start_time = 0
-    now_time = 0
+    song_begin = 0
+    pause_time = 0
     # Holds the threading object, also used to detirmine if a song is playing (more accurate than other methods)
     thr = threading.Thread()
     # Count refers to the index in current_playlist. it is incremented each time a song is finished
     song_count = 0
     # sleep timer is used to mirror the length of a song, so it can sleep for that long. playing doesn't halt the loop
+    # It is also used to see how long needs to be rendered after resumung music. So it would be time played - sleeptimer
     sleeptimer = 0
     # Holds the current playlist. In either shuffled or normal mode
     current_playlist = []
-    # holds ints, each is for the length of time paused, so it can remove it from the length of the song & sleeptimer
+    # holds integers. is used to cache when a user pauses the video. So it holds the time that has already been listened
+    # to. So when paused, then resume, it begins are correct spot
     resume_list = []
     # Detirmines if shuffle is on or off. in progress
     shuffle = None
-    # a flag used to stop the 'sleep'. normal time.sleep() can't be interupted (for pausing and whatnot), this can
+    # a flag used to stop the 'sleep'. normal time.sleep() can't be interupted (for pausing and whatnot). this can
     exited = threading.Event()
     # Used soley within the main_music_loop to detirmine whether the loop should reset the pause list. Because if this
     # Value is true, then it should, because it is a new song being played
@@ -512,19 +514,6 @@ class music_player:
 
 
 
-    def stop_timer(self):
-        self.now_time = time.time() - self.start_time
-        self.now_time = round(self.now_time, 3)
-        print(f"Now time: {self.now_time}")
-        self.resume_list.append(self.now_time)
-        total_time = 0
-        for time_seg in self.resume_list:
-            total_time += time_seg
-        print(f'TOTAL_TIME: {total_time}')
-        self.coming_from_loop = False
-
-
-
     def quit_out(self, signo=0, _frame=0):
         print("interupted by ", signo)
         self.exited.set()
@@ -541,12 +530,14 @@ class music_player:
             self.is_playing = True
             self.exited.clear()
             self.thr = KThread(target=self.testsong)
+            self.song_begin = time.time()
             self.thr.start()
         else:
             print("THRD!")
             self.is_playing = True
             self.exited.clear()
             self.thr = KThread(target=self.testsong)
+            self.song_begin = time.time()
             self.thr.start()
         self.kthread_check()
 
@@ -556,6 +547,7 @@ class music_player:
         self.is_playing = True
         self.thr = KThread(target=self.resume)
         self.thr.start()
+        self.song_begin = time.time()
         print(f'Should be true 1 : {self.thr.is_alive()}')
         print(f'Should be true 2 : {self.thr.is_alive()}')
 
@@ -592,8 +584,8 @@ class music_player:
             # Reset True status so if resume isn't called (sets to false) the resume_list is cleared
             self.coming_from_loop = True
             try:
-                # Plays said audio segment
-                self.start_time = time.time()
+                # tries to mimic the length of the song for pausing / resuming purposes
+                self.song_begin = time.time()
                 self.playback = pydub.playback._play_with_simpleaudio(self.song)
                 # Adjusting the class variables for next time the loop runs
                 self.sleeptimer = self.song.duration_seconds
@@ -647,7 +639,7 @@ class music_player:
         print("-----DEBUG----")
 
         print(f"self.song: {self.song}")
-        print(f"self.now_time: {self.now_time}")
+        print(f"self.pause_time: {self.pause_time}")
         print(f"self.thr: {self.thr}")
         print(f"self.song_count: {self.song_count}")
         print(f"self.sleeptimer: {self.sleeptimer}")
@@ -671,7 +663,6 @@ class music_player:
         #self.stop()
         self.song = None
         self.start_time = 0
-        self.now_time = 0
         self.thr = None
         #self.song_count = 0
         self.sleeptimer = 0
@@ -691,8 +682,8 @@ class music_player:
 
     def stop(self):
         self.is_playing = False
-        self.now_time = time.time() - self.start_time
-        now_time = round(self.now_time, 3)
+        self.pause_time = time.time() - self.song_begin
+        self.pause_time *= 1000
         self.exited.set()
         self.playback.stop()
         # Needed to reset the exited timer. One to flick it, one to reset to neutral
@@ -705,7 +696,7 @@ class music_player:
             self.exited.set()
             # Kills the audiosegment playing
             try:
-                # Try loop so on begin
+                # Try loop so on begin it doesn't cry
                 self.stop()
             except AttributeError:
                 pass
@@ -776,20 +767,17 @@ Solution:
         self.exited.clear()
         print(f'index at beginning of resume() {self.song_count}')
         # Makes it replay the song that was just stopped (offsetting the +1 form the original function)
-        self.song_count = self.song_count - 1
-        self.song = AudioSegment.from_file(self.current_playlist[self.song_count].Savelocation)
-        print(f'resume count: {self.song_count}')
-        #print(f'nowtime: {now_time}')
         # Current time in miliseconds (metric pydub operates in)
-        self.now_time = self.now_time * 1000
-        self.resume_list.append(self.now_time)
-        print(f'now_time before usage: {self.now_time}')
-        new_time = 0
-        for time_item in self.resume_list:
-            new_time += time_item
-        print(f'Size of new_time: {new_time}')
         # Defines class variable as only a portion of a song
+        self.resume_list.append(self.pause_time)
+        self.song_count -= 1
+        new_time = 0
+        self.song = AudioSegment.from_file(self.current_playlist[self.song_count].Savelocation)
+        for true_time in self.resume_list:
+            new_time += true_time
+        print(f'new_time (should be in ms) = {new_time}')
         self.song = self.song[new_time:]
+        print(f'self.song len() : {self.song.duration_seconds}')
         print(f'main_part (resume): {type(self.playback)}')
         self.coming_from_loop = False
         self.testsong("yella")
