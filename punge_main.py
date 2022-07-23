@@ -104,18 +104,30 @@ class tkinter_main(tk.Tk):
         self.root_frame.place(x=1050, y=0)
         self.bottom_frame = ttk.Frame(self, style='bottom.TFrame', height=75, width=1250)
         self.bottom_frame.place(x=0, y=675)
-
-        self.bottom_frame_play = tk.Button(self.bottom_frame, text='Play', command=self.play_with_cooldown)
-        self.bottom_frame_play.place(x=300, y=30)
         print(self.shared_data)
         bottom_frame_text_style = ttk.Style()
         bottom_frame_text_style.configure('bottom.TLabel', background='#1b1b1c', foreground='#9e9e9e')
         self.bottom_frame_song = ttk.Label(self.bottom_frame, text="", style='bottom.TLabel')
         self.bottom_frame_album = ttk.Label(self.bottom_frame, text="", style='bottom.TLabel')
         self.bottom_frame_author = ttk.Label(self.bottom_frame, text="", style='bottom.TLabel')
+        self.bottom_frame_skip_forwards = ttk.Button(self.bottom_frame, text='skip forwards',
+                                                     command=everyones_music.skip_forwards)
+        self.bottom_frame_skip_backwards = ttk.Button(self.bottom_frame, text='skip backwards',
+                                                     command=everyones_music.skip_backwards)
+        self.bottom_frame_shuffle = ttk.Button(self.bottom_frame, text='shuffle',
+                                               command=self.shuffle_update_bundle)
+        # all in bottom_frame_play get defined by self.update_play_pause, which handles all that logic
+        self.bottom_frame_play = tk.Button(self.bottom_frame)
+        # Which is called here, should default to text='play' * command=self.play_with_cooldown
+        self.update_play_pause()
+        self.update_shuffle()
         self.bottom_frame_song.place(x=110, y=10)
         self.bottom_frame_album.place(x=110, y=50)
         self.bottom_frame_author.place(x=110, y=30)
+        self.bottom_frame_skip_forwards.place(x=600, y=35)
+        self.bottom_frame_skip_backwards.place(x=300, y=35)
+        self.bottom_frame_play.place(x=450, y=35)
+        self.bottom_frame_shuffle.place(x=750, y=30)
 
         #self.bottom_frame_play_pause = tk.Button(self.bottom_frame, text='play', command=)
 
@@ -141,9 +153,49 @@ class tkinter_main(tk.Tk):
                                             command=lambda: self.playlist_edit(self.playlist_menu_edit.playlist))
         self.playlist_menu_edit.add_command(label="Delete",
                                             command=lambda: self.delete_playlist(self.playlist_menu_edit.playlist))
+        # Used to prevent the race condition so every_mcs.app_launch_setup_thr doesn't run before this threading.event
+        # is set
         everyones_music.flicker.set()
-    def send_update_shuffle(self):
-        pass
+
+    def global_keybind_play(self):
+        everyones_music.pause_play_toggle()
+        self.update_play_pause()
+
+    def shuffle_update_bundle(self):
+        if everyones_music.shuffle is True:
+            everyones_music.shuffle = False
+            everyones_music.reassemble_list()
+            self.bottom_frame_shuffle.configure(text='SHUFFLE IS OFF')
+        else:
+            everyones_music.shuffle = True
+            everyones_music.scramble_playlist()
+            self.bottom_frame_shuffle.configure(text='SHUFFLE IS ON')
+
+    def update_play_pause(self):
+        if not everyones_music.thr.is_alive() and not everyones_music.pause_bool:
+            self.bottom_frame_play.configure(text="Play", command=self.play_with_cooldown)
+        elif everyones_music.pause_bool is True:
+            self.bottom_frame_play.configure(text="Resume", command=self.resume_pause_toggle)
+        else:
+            print(f'thr_isalive {everyones_music.thr.is_alive()} pausebool: {everyones_music.pause_bool}')
+            self.bottom_frame_play.configure(text="Stop", command=self.resume_pause_toggle)
+
+    def resume_pause_toggle(self):
+        self.bottom_frame_play.configure(state='disabled')
+        self.update_play_pause()
+        everyones_music.pause_play_toggle()
+        self.update_play_pause()
+        self.bottom_frame_play.after(400, lambda: self.bottom_frame_play.configure(state='active'))
+
+    def update_shuffle(self):
+        if everyones_music.shuffle is True:
+            print(f'update_shuf IS ON : {everyones_music.shuffle}')
+            self.bottom_frame_shuffle.configure(text='SHUFFLE IS ON')
+        else:
+            print(f'update_shuf IS OFF : {everyones_music.shuffle}')
+            self.bottom_frame_shuffle.configure(text='SHUFFLE IS OFF')
+
+
 
     def send_update_labels(self):
         # Include little thumbnail eventually?
@@ -159,6 +211,7 @@ class tkinter_main(tk.Tk):
         everyones_music.play()
         self.bottom_frame_play.configure(state='disabled')
         self.bottom_frame_play.after(500, lambda: self.bottom_frame_play.configure(state='active'))
+        self.update_play_pause()
 
     def playlist_edit(self, playlist):
         if playlist[0] == 'main':
@@ -323,6 +376,7 @@ class tkinter_main(tk.Tk):
             everyones_music.song_count -= 1
             everyones_music.set_shared_data()
             print(f'shared data AT END: {self.shared_data}')
+            print(f'status of shuffle: {everyones_music.shuffle}')
             with open("./Cache/playlist.json", "w") as file:
                 json.dump(self.shared_data, file)
         finally:
@@ -334,6 +388,7 @@ class tkinter_main(tk.Tk):
 
     def get_page(self, page_class):
         return self.frames[page_class]
+
 
 class music_player:
     def __init__(self, controller=None):
@@ -354,7 +409,7 @@ class music_player:
     # holds ints, each is for the length of time paused, so it can remove it from the length of the song & sleeptimer
     resume_list = []
     # Detirmines if shuffle is on or off. in progress
-    shuffle = True
+    shuffle = None
     # a flag used to stop the 'sleep'. normal time.sleep() can't be interupted (for pausing and whatnot), this can
     exited = threading.Event()
     # Used soley within the main_music_loop to detirmine whether the loop should reset the pause list. Because if this
@@ -386,9 +441,9 @@ class music_player:
             # Sets the shared_data dict = to the json file
             self.controller.shared_data = x
             print(f'app_lauch sets controller.shared_data= {x}')
-            self.flicker.wait()
             print(f'self.shuffle: {x["shuffle"]} ')
             self.shuffle = x['shuffle']
+            self.flicker.wait()
             # Queries the self.current_playlist, takes into account the status of self.shuffle
             self.query_list()
             songid = x['songid']
@@ -654,12 +709,17 @@ class music_player:
             # Kills the self.exited.wait() timer
             self.exited.set()
             # Kills the audiosegment playing
-            self.stop()
-            # Resets the status of self.exited.clear() it will be ready to play again
-            self.exited.clear()
-            # No song_count increment needed because the loop by default, increments song_count
-            self.resume_list.clear()
-            print(f"pause_bool rn: {self.pause_bool}")
+            try:
+                # Try loop so on begin
+                self.stop()
+            except AttributeError:
+                pass
+            finally:
+                # Resets the status of self.exited.clear() it will be ready to play again
+                self.exited.clear()
+                # No song_count increment needed because the loop by default, increments song_count
+                self.resume_list.clear()
+                print(f"pause_bool rn: {self.pause_bool}")
         else:
             print("skipforwards debug:")
             self.print_debug("skip_forwards")
@@ -758,16 +818,6 @@ Solution:
         self.current_playlist = big_ol_list
 
 
-    def update_playlist(self):
-        if self.shuffle is True:
-            #self.controller.
-            self.scramble_playlist()
-            print(f'scrabled list: {self.current_playlist}')
-            self.shuffle = False
-        else:
-            self.reassemble_list()
-            self.shuffle = True
-
 
     def scramble_playlist(self):
         random.shuffle(self.current_playlist)
@@ -860,8 +910,8 @@ class Currently_playing(tk.Frame):
         self.resume_button = ttk.Button(self, text="TESTING BUTTON", command=self.resume_pause_toggle)
         self.resume_button.place(relx=.5, rely=.75)
 
-        self.shuffle_button = ttk.Button(self, text="Shuffle (off)", command=everyones_music.update_playlist)
-        self.shuffle_button.place(x=250, y=400)
+#        self.shuffle_button = ttk.Button(self, text="Shuffle (off)", command=everyones_music.update_playlist)
+#        self.shuffle_button.place(x=250, y=400)
 
         mute_button = ttk.Button(self, text="mute", command=volume_mute)
         mute_button.place(rely=.5, relx=.65)
