@@ -625,10 +625,6 @@ class music_player:
 
 
 
-    def sleep_check(self):
-        print("begin sleep")
-        time.sleep(10)
-        print("end sleep!")
 
     def list_debug(self):
         print(f"PLAYLIST: {self.controller.shared_data['playlist']}")
@@ -695,7 +691,6 @@ class music_player:
 
     def stop(self):
         self.is_playing = False
-        print(type(self.now_time), type(self.start_time))
         self.now_time = time.time() - self.start_time
         now_time = round(self.now_time, 3)
         self.exited.set()
