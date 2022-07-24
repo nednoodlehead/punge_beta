@@ -86,6 +86,10 @@ class tkinter_main(tk.Tk):
         everyones_music.app_launch_setup_thr()
         # self.properclose required for the app to stop playing music on exit
         self.protocol("WM_DELETE_WINDOW", self.proper_close)
+        # These bindings replace the regular alt-f4 to keep the json caching accurate. Without them, an alt-f4 would
+        # Not behave properly
+        self.bind("<Alt_L>F4", self.proper_close)
+        self.bind("<Alt_R>F4", self.proper_close)
         main_page_frame = tk.Frame(self)
         main_page_frame.pack(side="top", fill="both", expand=True)
         main_page_frame.grid_rowconfigure(0, weight=1)
@@ -100,16 +104,32 @@ class tkinter_main(tk.Tk):
         self.root_frame.place(x=1050, y=0)
         self.bottom_frame = ttk.Frame(self, style='bottom.TFrame', height=75, width=1250)
         self.bottom_frame.place(x=0, y=675)
-
-        self.bottom_frame_play = tk.Button(self.bottom_frame, text='Play', command=self.play_with_cooldown)
-        self.bottom_frame_play.place(x=300, y=30)
         print(self.shared_data)
-        self.bottom_frame_song = tk.Label(self.bottom_frame, text="placeholder_song")
-        self.bottom_frame_album = tk.Label(self.bottom_frame, text="placeholder_album")
-        self.bottom_frame_author = tk.Label(self.bottom_frame, text='playholder_author')
-        self.bottom_frame_song.place(x=350, y=50)
-        self.bottom_frame_album.place(x=450, y=50)
-        self.bottom_frame_author.place(x=675, y=50)
+        bottom_frame_text_style = ttk.Style()
+        bottom_frame_text_style.configure('bottom.TLabel', background='#1b1b1c', foreground='#9e9e9e')
+        self.bottom_frame_song = ttk.Label(self.bottom_frame, text="", style='bottom.TLabel')
+        self.bottom_frame_album = ttk.Label(self.bottom_frame, text="", style='bottom.TLabel')
+        self.bottom_frame_author = ttk.Label(self.bottom_frame, text="", style='bottom.TLabel')
+        self.bottom_frame_skip_forwards = ttk.Button(self.bottom_frame, text='skip forwards',
+                                                     command=everyones_music.skip_forwards)
+        self.bottom_frame_skip_backwards = ttk.Button(self.bottom_frame, text='skip backwards',
+                                                     command=everyones_music.skip_backwards)
+        self.bottom_frame_shuffle = ttk.Button(self.bottom_frame, text='shuffle',
+                                               command=self.shuffle_update_bundle)
+        # all in bottom_frame_play get defined by self.update_play_pause, which handles all that logic
+        self.bottom_frame_play = tk.Button(self.bottom_frame)
+        # Which is called here, should default to text='play' * command=self.play_with_cooldown
+        self.update_play_pause()
+        self.update_shuffle()
+        self.bottom_frame_song.place(x=110, y=10)
+        self.bottom_frame_album.place(x=110, y=50)
+        self.bottom_frame_author.place(x=110, y=30)
+        self.bottom_frame_skip_forwards.place(x=600, y=35)
+        self.bottom_frame_skip_backwards.place(x=300, y=35)
+        self.bottom_frame_play.place(x=450, y=35)
+        self.bottom_frame_shuffle.place(x=750, y=30)
+
+        #self.bottom_frame_play_pause = tk.Button(self.bottom_frame, text='play', command=)
 
         self.frames = {}
         for each_frame in (Main_page, Currently_playing, Settings, Download, mp4_downloader, active_playlist):
@@ -133,8 +153,49 @@ class tkinter_main(tk.Tk):
                                             command=lambda: self.playlist_edit(self.playlist_menu_edit.playlist))
         self.playlist_menu_edit.add_command(label="Delete",
                                             command=lambda: self.delete_playlist(self.playlist_menu_edit.playlist))
-    def send_update_shuffle(self):
-        pass
+        # Used to prevent the race condition so every_mcs.app_launch_setup_thr doesn't run before this threading.event
+        # is set
+        everyones_music.flicker.set()
+
+    def global_keybind_play(self):
+        everyones_music.pause_play_toggle()
+        self.update_play_pause()
+
+    def shuffle_update_bundle(self):
+        if everyones_music.shuffle is True:
+            everyones_music.shuffle = False
+            everyones_music.reassemble_list()
+            self.bottom_frame_shuffle.configure(text='SHUFFLE IS OFF')
+        else:
+            everyones_music.shuffle = True
+            everyones_music.scramble_playlist()
+            self.bottom_frame_shuffle.configure(text='SHUFFLE IS ON')
+
+    def update_play_pause(self):
+        if not everyones_music.thr.is_alive() and not everyones_music.pause_bool:
+            self.bottom_frame_play.configure(text="Play", command=self.play_with_cooldown)
+        elif everyones_music.pause_bool is True:
+            self.bottom_frame_play.configure(text="Resume", command=self.resume_pause_toggle)
+        else:
+            print(f'thr_isalive {everyones_music.thr.is_alive()} pausebool: {everyones_music.pause_bool}')
+            self.bottom_frame_play.configure(text="Stop", command=self.resume_pause_toggle)
+
+    def resume_pause_toggle(self):
+        self.bottom_frame_play.configure(state='disabled')
+        self.update_play_pause()
+        everyones_music.pause_play_toggle()
+        self.update_play_pause()
+        self.bottom_frame_play.after(400, lambda: self.bottom_frame_play.configure(state='active'))
+
+    def update_shuffle(self):
+        if everyones_music.shuffle is True:
+            print(f'update_shuf IS ON : {everyones_music.shuffle}')
+            self.bottom_frame_shuffle.configure(text='SHUFFLE IS ON')
+        else:
+            print(f'update_shuf IS OFF : {everyones_music.shuffle}')
+            self.bottom_frame_shuffle.configure(text='SHUFFLE IS OFF')
+
+
 
     def send_update_labels(self):
         # Include little thumbnail eventually?
@@ -150,6 +211,7 @@ class tkinter_main(tk.Tk):
         everyones_music.play()
         self.bottom_frame_play.configure(state='disabled')
         self.bottom_frame_play.after(500, lambda: self.bottom_frame_play.configure(state='active'))
+        self.update_play_pause()
 
     def playlist_edit(self, playlist):
         if playlist[0] == 'main':
@@ -314,6 +376,7 @@ class tkinter_main(tk.Tk):
             everyones_music.song_count -= 1
             everyones_music.set_shared_data()
             print(f'shared data AT END: {self.shared_data}')
+            print(f'status of shuffle: {everyones_music.shuffle}')
             with open("./Cache/playlist.json", "w") as file:
                 json.dump(self.shared_data, file)
         finally:
@@ -326,27 +389,30 @@ class tkinter_main(tk.Tk):
     def get_page(self, page_class):
         return self.frames[page_class]
 
+
 class music_player:
     def __init__(self, controller=None):
         self.controller = controller
     # Song is used to hold the Pydub.Audiosegment used to be played.
     song = None
     # Start_time is the beginning of the loop, used in conjuction with now_time to detirmine when music is/isnt playing
-    start_time = 0
-    now_time = 0
+    song_begin = 0
+    pause_time = 0
     # Holds the threading object, also used to detirmine if a song is playing (more accurate than other methods)
     thr = threading.Thread()
     # Count refers to the index in current_playlist. it is incremented each time a song is finished
     song_count = 0
     # sleep timer is used to mirror the length of a song, so it can sleep for that long. playing doesn't halt the loop
+    # It is also used to see how long needs to be rendered after resumung music. So it would be time played - sleeptimer
     sleeptimer = 0
     # Holds the current playlist. In either shuffled or normal mode
     current_playlist = []
-    # holds ints, each is for the length of time paused, so it can remove it from the length of the song & sleeptimer
+    # holds integers. is used to cache when a user pauses the video. So it holds the time that has already been listened
+    # to. So when paused, then resume, it begins are correct spot
     resume_list = []
     # Detirmines if shuffle is on or off. in progress
-    shuffle = True
-    # a flag used to stop the 'sleep'. normal time.sleep() can't be interupted (for pausing and whatnot), this can
+    shuffle = None
+    # a flag used to stop the 'sleep'. normal time.sleep() can't be interupted (for pausing and whatnot). this can
     exited = threading.Event()
     # Used soley within the main_music_loop to detirmine whether the loop should reset the pause list. Because if this
     # Value is true, then it should, because it is a new song being played
@@ -361,6 +427,11 @@ class music_player:
     # Goal of this function is to run when app is launched, and 'restore' previous session playlist & song. this will
     # reduce the need for special causes around 'no song selected / no playlist selected'. and we will always be working
     # with valid objects at all times
+    flicker = threading.Event()
+    flicker.clear()
+    # Flicker is used to prevent a race condition. When app_launch_startup begins, it opens on a new thread and tries
+    # to set self.controller.send_update_labels, which can occur before the labels inside have been initialized. This
+    # is apparent because when a time.sleep() is added to app_launch_setup, an error does not occur
 
     def app_launch_setup_thr(self):
         thr = threading.Thread(target=self.app_launch_setup)
@@ -372,13 +443,13 @@ class music_player:
             # Sets the shared_data dict = to the json file
             self.controller.shared_data = x
             print(f'app_lauch sets controller.shared_data= {x}')
-            # Shuffle has to be stored as a string, so this removes that string-ness? so shuffle can be read as True
-            # and not 'True'
             print(f'self.shuffle: {x["shuffle"]} ')
             self.shuffle = x['shuffle']
+            self.flicker.wait()
             # Queries the self.current_playlist, takes into account the status of self.shuffle
             self.query_list()
             songid = x['songid']
+            # TODO FLICKER
             for count, entry in enumerate(self.current_playlist):
                 if entry.Uniqueid == songid:
                     self.song_count = count
@@ -392,11 +463,11 @@ class music_player:
     def pause_play_toggle(self, extra=None):
         # If it is pausued:
         if self.pause_bool is True:
-            everyones_music.resume_thread()
+            self.resume_thread()
             self.pause_bool = False
         else:
             self.pause_bool = True
-            everyones_music.stop()
+            self.stop()
     """
     Right now, an important part of what makes punge work ok is the class attirbutes start_time & now_time. These are
     essential for the music_player class to work properly.
@@ -408,6 +479,21 @@ class music_player:
     as it will be able to reproduce the audiosegment after the pause is called, because it will know the time to resume 
     at immediately after. Only downside is pausing and resuming repedatly will cause problems in terms of preformance
     """
+
+    def kthread_check(self):
+        print('kthread called')
+        k_count = []
+        # Checks over every thread
+        for thread in threading.enumerate():
+            # Filters only Kthreads. KThreads play music only
+            if type(thread) == KThread:
+                # place each Kthread into the list
+                k_count.append(thread)
+            # Kill all Kthreads besides last. This allows the most recent thread began to 'win' and play
+            for die_thread in k_count[:-1]:
+                print(f'killing thread: {die_thread}')
+                die_thread.kill()
+
 
 
     def thd(self):
@@ -428,19 +514,6 @@ class music_player:
 
 
 
-    def stop_timer(self):
-        self.now_time = time.time() - self.start_time
-        self.now_time = round(self.now_time, 3)
-        print(f"Now time: {self.now_time}")
-        self.resume_list.append(self.now_time)
-        total_time = 0
-        for time_seg in self.resume_list:
-            total_time += time_seg
-        print(f'TOTAL_TIME: {total_time}')
-        self.coming_from_loop = False
-
-
-
     def quit_out(self, signo=0, _frame=0):
         print("interupted by ", signo)
         self.exited.set()
@@ -457,13 +530,16 @@ class music_player:
             self.is_playing = True
             self.exited.clear()
             self.thr = KThread(target=self.testsong)
+            self.song_begin = time.time()
             self.thr.start()
         else:
             print("THRD!")
             self.is_playing = True
             self.exited.clear()
             self.thr = KThread(target=self.testsong)
+            self.song_begin = time.time()
             self.thr.start()
+        self.kthread_check()
 
 
 
@@ -471,6 +547,7 @@ class music_player:
         self.is_playing = True
         self.thr = KThread(target=self.resume)
         self.thr.start()
+        self.song_begin = time.time()
         print(f'Should be true 1 : {self.thr.is_alive()}')
         print(f'Should be true 2 : {self.thr.is_alive()}')
 
@@ -507,8 +584,8 @@ class music_player:
             # Reset True status so if resume isn't called (sets to false) the resume_list is cleared
             self.coming_from_loop = True
             try:
-                # Plays said audio segment
-                self.start_time = time.time()
+                # tries to mimic the length of the song for pausing / resuming purposes
+                self.song_begin = time.time()
                 self.playback = pydub.playback._play_with_simpleaudio(self.song)
                 # Adjusting the class variables for next time the loop runs
                 self.sleeptimer = self.song.duration_seconds
@@ -540,13 +617,9 @@ class music_player:
 
 
 
-    def sleep_check(self):
-        print("begin sleep")
-        time.sleep(10)
-        print("end sleep!")
 
     def list_debug(self):
-        print(f"PLAYLIST: {self.controller.shared_data['playlist'].get()}")
+        print(f"PLAYLIST: {self.controller.shared_data['playlist']}")
         print(f'list_debug cursong: {self.controller.music_obj}')
         for item in self.current_playlist[self.song_count - 1:self.song_count + 5]:
             print(item.Title)
@@ -556,12 +629,17 @@ class music_player:
         print("###THR DEBUG###")
         for th in threading.enumerate():
             print(f'thread: {th}')
+            print(f'type: {type(th)}')
+        print('kthreads only:')
+        for threa in threading.enumerate():
+            if type(threa) == KThread:
+                print(f'kthrad locatied::: {threa}')
         print("***JSON DEBUG***")
         print(self.controller.shared_data)
         print("-----DEBUG----")
 
         print(f"self.song: {self.song}")
-        print(f"self.now_time: {self.now_time}")
+        print(f"self.pause_time: {self.pause_time}")
         print(f"self.thr: {self.thr}")
         print(f"self.song_count: {self.song_count}")
         print(f"self.sleeptimer: {self.sleeptimer}")
@@ -585,7 +663,6 @@ class music_player:
         #self.stop()
         self.song = None
         self.start_time = 0
-        self.now_time = 0
         self.thr = None
         #self.song_count = 0
         self.sleeptimer = 0
@@ -605,9 +682,8 @@ class music_player:
 
     def stop(self):
         self.is_playing = False
-        print(type(self.now_time), type(self.start_time))
-        self.now_time = time.time() - self.start_time
-        now_time = round(self.now_time, 3)
+        self.pause_time = time.time() - self.song_begin
+        self.pause_time *= 1000
         self.exited.set()
         self.playback.stop()
         # Needed to reset the exited timer. One to flick it, one to reset to neutral
@@ -619,12 +695,17 @@ class music_player:
             # Kills the self.exited.wait() timer
             self.exited.set()
             # Kills the audiosegment playing
-            self.stop()
-            # Resets the status of self.exited.clear() it will be ready to play again
-            self.exited.clear()
-            # No song_count increment needed because the loop by default, increments song_count
-            self.resume_list.clear()
-            print(f"pause_bool rn: {self.pause_bool}")
+            try:
+                # Try loop so on begin it doesn't cry
+                self.stop()
+            except AttributeError:
+                pass
+            finally:
+                # Resets the status of self.exited.clear() it will be ready to play again
+                self.exited.clear()
+                # No song_count increment needed because the loop by default, increments song_count
+                self.resume_list.clear()
+                print(f"pause_bool rn: {self.pause_bool}")
         else:
             print("skipforwards debug:")
             self.print_debug("skip_forwards")
@@ -686,20 +767,17 @@ Solution:
         self.exited.clear()
         print(f'index at beginning of resume() {self.song_count}')
         # Makes it replay the song that was just stopped (offsetting the +1 form the original function)
-        self.song_count = self.song_count - 1
-        self.song = AudioSegment.from_file(self.current_playlist[self.song_count].Savelocation)
-        print(f'resume count: {self.song_count}')
-        #print(f'nowtime: {now_time}')
         # Current time in miliseconds (metric pydub operates in)
-        self.now_time = self.now_time * 1000
-        self.resume_list.append(self.now_time)
-        print(f'now_time before usage: {self.now_time}')
-        new_time = 0
-        for time_item in self.resume_list:
-            new_time += time_item
-        print(f'Size of new_time: {new_time}')
         # Defines class variable as only a portion of a song
+        self.resume_list.append(self.pause_time)
+        self.song_count -= 1
+        new_time = 0
+        self.song = AudioSegment.from_file(self.current_playlist[self.song_count].Savelocation)
+        for true_time in self.resume_list:
+            new_time += true_time
+        print(f'new_time (should be in ms) = {new_time}')
         self.song = self.song[new_time:]
+        print(f'self.song len() : {self.song.duration_seconds}')
         print(f'main_part (resume): {type(self.playback)}')
         self.coming_from_loop = False
         self.testsong("yella")
@@ -723,16 +801,6 @@ Solution:
         self.current_playlist = big_ol_list
 
 
-    def update_playlist(self):
-        if self.shuffle is True:
-            #self.controller.
-            self.scramble_playlist()
-            print(f'scrabled list: {self.current_playlist}')
-            self.shuffle = False
-        else:
-            self.reassemble_list()
-            self.shuffle = True
-
 
     def scramble_playlist(self):
         random.shuffle(self.current_playlist)
@@ -754,13 +822,13 @@ Solution:
         # Iterate over each entry of said playlist
         for entry in self.current_playlist:
             # Find where the current song sits in the unqueried list, set song_count to that number
-            if entry.Title == self.current_playlist[self.song_count].Title:
+            if entry.Title == self.controller.music_obj.Title:
                 print(f"entry.title: {entry.Title}")
                 print(f"current song to grab is: {entry.Title}")
                 x = self.current_playlist.index(entry)
                 # +1 required because when index is got, it will get the index of the active, playing song. we want it
                 # to play the next song up.
-                self.song_count = x
+                self.song_count = x + 1
 
 
 everyones_music = music_player()
@@ -825,8 +893,8 @@ class Currently_playing(tk.Frame):
         self.resume_button = ttk.Button(self, text="TESTING BUTTON", command=self.resume_pause_toggle)
         self.resume_button.place(relx=.5, rely=.75)
 
-        self.shuffle_button = ttk.Button(self, text="Shuffle (off)", command=everyones_music.update_playlist)
-        self.shuffle_button.place(x=250, y=400)
+#        self.shuffle_button = ttk.Button(self, text="Shuffle (off)", command=everyones_music.update_playlist)
+#        self.shuffle_button.place(x=250, y=400)
 
         mute_button = ttk.Button(self, text="mute", command=volume_mute)
         mute_button.place(rely=.5, relx=.65)
