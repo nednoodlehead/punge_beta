@@ -5,7 +5,7 @@ from tkinter import messagebox
 import tkinter as tk
 import os
 import sqlite3
-#from PIL import Image, ImageTk
+from PIL import Image, ImageTk
 import os.path
 import urllib.request
 import db
@@ -16,7 +16,6 @@ from sqlalchemy.orm import sessionmaker
 import threading
 import pydub
 from pydub import AudioSegment
-import simpleaudio as sa
 from pydub.playback import play
 from pathlib import Path
 import random
@@ -440,6 +439,7 @@ class music_player:
     def app_launch_setup(self):
         with open("./Cache/playlist.json") as file:
             x = json.load(file)
+            print(x)
             # Sets the shared_data dict = to the json file
             self.controller.shared_data = x
             print(f'app_lauch sets controller.shared_data= {x}')
@@ -743,18 +743,7 @@ class music_player:
                 self.song_count = self.song_count - 2
                 self.play()
                 self.pause_bool = False
-    """
-fix for resuming not working:
-problem: Each time pause occurs, the self.start_song gets reset. this causes 'segmentation' of the song
-where it doesnt account for the time.time() when it should be the beginning of the song (the time difference
-should be a when the song began vs when it was most recently paused. 
-Solution:
-    create class list
-    append time of each interval into class list
-    this time ^ should be the time between the song beginning (again after a pause too) and when it is paused
-    this added-up time should not exceed the length of the song and should add up to where user paused last
-    the result of the list should be passed into self.testsong and likely calculated in self.ressume
-    """
+
     def add_times(self):
         to_return = 0
         for item in self.resume_list:
@@ -954,6 +943,66 @@ class Settings(tk.Frame):
         button_download.place(x=0, y=175)
         button_settings.place(x=0,y=200)
         button_mp4.place(x=0, y=225)
+        self.json_button = tk.Button(self, text='add to json', command=self.add_entry)
+        self.json_button.place(x=500, y=200)
+        self.path = "./Cache/downloadlocation.json"
+        self.new_path = tk.StringVar()
+        self.json_entry = tk.Entry(self, textvariable=self.new_path)
+        self.json_entry.place(x=500, y=225)
+        self.view_json = tk.Button(self, text='view json', command=self.read_entries)
+        self.view_json.place(x=500, y=250)
+        self.curJson = self.read_entries()
+        self.delete_combobox = ttk.Combobox(self, width=25, values=self.curJson)
+        self.delete_combobox.set(self.curJson[0])
+        self.delete_combobox.place(x=700, y=225)
+        self.delete_button = ttk.Button(self, text='Delete!', command=self.delete_from_combobox)
+        self.delete_button.place(x=700, y=250)
+
+    def read_entries(self):
+        with open(self.path, 'r') as file:
+            x = json.load(file)
+            print(x)
+            self.curJson = x
+            return x
+
+
+    def add_entry(self):
+        add_to_json = self.json_entry.get()
+        if os.path.exists(add_to_json) is False:
+            print('path no exist!!')
+            tk.messagebox.showerror('Error', 'You Need to enter a valid path!')
+        else:
+            x = add_to_json.replace('\\', '/')
+            print('path do exist')
+            old_entries = self.read_entries()
+            with open(self.path, 'w') as file:
+                old_entries.append(x)
+                json.dump(old_entries, file)
+            self.json_entry.delete(0, 'end')
+            self.combo_update()
+
+    def combo_update(self):
+        self.delete_combobox.configure(values=self.curJson)
+        self.delete_combobox.set(self.curJson[0])
+
+
+    def delete_from_combobox(self):
+        delete = self.delete_combobox.get()
+        with open(self.path, 'r') as file:
+            myjson = json.load(file)
+            print(myjson)
+            for entry in myjson:
+                print(f'entry!')
+                if entry == delete:
+                    myjson.remove(entry)
+            print(f'newjson!!: {myjson}')
+            self.curJson = myjson
+            self.combo_update()
+        with open(self.path, 'w') as file_2:
+            json.dump(myjson, file_2)
+
+
+
 class Download(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
@@ -1159,6 +1208,7 @@ class mp4_downloader(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.configure(bg="#272c34")
+        self.controller = controller
         button_main = Button(self, text="Main page", command=lambda: controller.show_frame(Main_page))
         button_current = Button(self, text="Currently playing", command=lambda: controller.show_frame(Currently_playing))
         button_download = Button(self, text="Download", command=lambda: controller.show_frame(Download))
@@ -1169,98 +1219,111 @@ class mp4_downloader(tk.Frame):
         button_download.place(x=0, y=175)
         button_settings.place(x=0,y=200)
         button_mp4.place(x=0, y=225)
+        self.yt_link_stringvar = StringVar()
+        self.YOUTUBEBOX = ttk.Entry(self, textvariable=self.yt_link_stringvar)
+        self.YOUTUBEBOX.place(rely=.40, relx=.5, anchor=CENTER, width=250)
+        self.YOUTUBEBOX.bind("<Return>", self.yt_link_get_thread)
+        self.download_button = ttk.Button(self, text="Get!", command=self.yt_link_get_thread)
+        self.download_button.place(rely=.45, relx=.5, anchor=CENTER)
+        self.mp3_vs_mp4_list = [".MP4", ".MP3", ".MP4"]
+        self.mp3_vs_mp4 = StringVar()
+        self.mp4_mp3_differ_box = ttk.OptionMenu(self, self.mp3_vs_mp4, *self.mp3_vs_mp4_list)
+        self.mp4_mp3_differ_box.place(x=770, y=287)
+        with open("./Cache/downloadlocation.json") as file:
+            self.desire_path_values = json.load(file)
+        self.desire_path = ttk.Combobox(self, width=50, values=self.desire_path_values)
+        self.desire_path.set(self.desire_path_values[0])  # Should be settable by user ?
+        self.desire_path.place(relx=.5, rely=.5, anchor=CENTER)
+        self.x_button = ttk.Button(self, text='X', command=self.clear_youtubebox, width=2)
+        self.x_button.place(x=470, y=287)
+        self.bind("<<ShowFrame>>", self.on_page_swap)
 
 
 
-        def download_mp3_playlist(youtube_link, pathism):
-            video1 = Playlist(youtube_link)
-            for video_main in video1.videos:
-                video_sep2 = video_main.streams.get_audio_only()
-                bruh_change = video_sep2.download(output_path=pathism)
-                pre, ext = os.path.splitext(bruh_change)
-                os.rename(bruh_change, pre + ".mp3")
 
-        def download_mp3_single(youtube_link, pathism):
-            video1 = YouTube(youtube_link)
-            video_main = video1.streams.get_audio_only()
-            print(video_main.title)
-            bruh_change = video_main.download(output_path=pathism)
+    def download_mp3_playlist(self, youtube_link, pathism):
+        video1 = Playlist(youtube_link)
+        for video_main in video1.videos:
+            video_sep2 = video_main.streams.get_audio_only()
+            bruh_change = video_sep2.download(output_path=pathism)
             pre, ext = os.path.splitext(bruh_change)
             os.rename(bruh_change, pre + ".mp3")
 
-        def download_mp4_playlist(youtube_link, pathism):
-            video1 = Playlist(youtube_link)
-            for video_main in video1.videos:
-                video_sep2 = video_main.streams.get_highest_resolution()
-                video_sep2.download(output_path=pathism)
+    def download_mp3_single(self, youtube_link, pathism):
+        video1 = YouTube(youtube_link)
+        video_main = video1.streams.get_audio_only()
+        print(video_main.title)
+        bruh_change = video_main.download(output_path=pathism)
+        pre, ext = os.path.splitext(bruh_change)
+        os.rename(bruh_change, pre + ".mp3")
 
-        def download_mp4_single(youtube_link, pathism):
-            video1 = YouTube(youtube_link)
-            vid_download = video1.streams.get_highest_resolution()
-            print(vid_download.title)
-            vid_download.download(output_path=pathism)
+    def download_mp4_playlist(self, youtube_link, pathism):
+        video1 = Playlist(youtube_link)
+        for video_main in video1.videos:
+            video_sep2 = video_main.streams.get_highest_resolution()
+            video_sep2.download(output_path=pathism)
+
+    def download_mp4_single(self, youtube_link, pathism):
+        video1 = YouTube(youtube_link)
+        vid_download = video1.streams.get_highest_resolution()
+        print(vid_download.title)
+        vid_download.download(output_path=pathism)
 
 
 
 
-        def download_mp3_differ():
-            pathism = desire_path.get()
-            if os.path.exists(pathism) is False:
-                print("Choose a proper path lil bruh")
-            else:
-                youtube_link = yt_link_stringvar.get()
-                if "list=" in youtube_link:
-                    download_mp3_playlist(youtube_link, pathism)
-                else:
-                    download_mp3_single(youtube_link, pathism)
-        def download_mp4_differ():
-            pathism = desire_path.get()
-            youtube_link = yt_link_stringvar.get()
+    def download_mp3_differ(self):
+        pathism = self.desire_path.get()
+        if os.path.exists(pathism) is False:
+            print("Choose a proper path lil bruh")
+        else:
+            youtube_link = self.yt_link_stringvar.get()
             if "list=" in youtube_link:
-                download_mp4_playlist(youtube_link, pathism)
+                self.download_mp3_playlist(youtube_link, pathism)
             else:
-                download_mp4_single(youtube_link, pathism)
+                self.download_mp3_single(youtube_link, pathism)
+
+    def download_mp4_differ(self):
+        pathism = self.desire_path.get()
+        youtube_link = self.yt_link_stringvar.get()
+        if "list=" in youtube_link:
+            self.download_mp4_playlist(youtube_link, pathism)
+        else:
+            self.download_mp4_single(youtube_link, pathism)
 
 
 
-        def download_differ(event):
-            current_mp = mp3_vs_mp4.get()
-            print(f'current_mp: {current_mp}')
-            if current_mp == ".MP?":
-                print("stupid head")
-            elif current_mp == ".MP3":
-                download_mp3_differ()
-            else:
-                download_mp4_differ()
+    def download_differ(self, event):
+        current_mp = self.mp3_vs_mp4.get()
+        print(f'current_mp: {current_mp}')
+        if current_mp == ".MP?":
+            print("stupid head")
+        elif current_mp == ".MP3":
+            self.download_mp3_differ()
+        else:
+            self.download_mp4_differ()
 
 
-        def yt_link_get_thread(*event):
-            thread1 = threading.Thread(target=yt_link_get)
-            thread1.start()
+    def yt_link_get_thread(self, *event):
+        thread1 = threading.Thread(target=self.yt_link_get)
+        thread1.start()
 
-        yt_link_stringvar = StringVar()
-        YOUTUBEBOX = ttk.Entry(self, textvariable=yt_link_stringvar)
-        YOUTUBEBOX.place(rely=.40, relx=.5, anchor=CENTER, width=250)
-        YOUTUBEBOX.bind("<Return>", yt_link_get_thread)
 
-        download_button = ttk.Button(self, text="Get!", command=yt_link_get_thread)
-        download_button.place(rely=.45, relx=.5, anchor=CENTER)
+    def clear_youtubebox(self):
+        self.YOUTUBEBOX.delete(0, 'end')
 
-        mp3_vs_mp4_list = [".MP?", ".MP3", ".MP4"]
-        mp3_vs_mp4 = StringVar()
-        mp4_mp3_differ_box = ttk.OptionMenu(self, mp3_vs_mp4, *mp3_vs_mp4_list)
-        mp4_mp3_differ_box.place(x=5, y=240)
 
-        desire_path_values = ["f:/downloads folder", "f:/files at random"] #settings add more
 
-        desire_path = ttk.Combobox(self, width=30, values=desire_path_values)
-        desire_path.set("C:/")  # Should be settable by user ?
-        desire_path.place(relx=.5, rely=.5, anchor=CENTER)
+    def yt_link_get(self, *event):
+        ytlink = self.yt_link_stringvar.get()
+        self.download_differ(ytlink)
+        self.YOUTUBEBOX.delete(0, 'end')
 
-        def yt_link_get(*event):
-            ytlink = yt_link_stringvar.get()
-            download_differ(ytlink)
-            YOUTUBEBOX.delete(0, 'end')
+    def on_page_swap(self, event):
+        with open("./Cache/downloadlocation.json", 'r') as file:
+            new_json = json.load(file)
+            self.desire_path.configure(values=new_json)
+            self.desire_path.set(new_json[0])
 
 
 
