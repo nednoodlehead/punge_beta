@@ -699,6 +699,7 @@ class music_player:
         self.print_debug("stop")
 
     def skip_forwards(self, option=None):
+        self.coming_from_loop = False
         if self.pause_bool is False:
             # Kills the self.exited.wait() timer
             self.exited.set()
@@ -737,6 +738,7 @@ class music_player:
 
 
     def skip_backwards(self, option=None):
+        self.coming_from_loop = False
         if self.song_count == 1:
             print('can\'t be going back like dat!')
         else:
@@ -750,6 +752,7 @@ class music_player:
                 self.exited.clear()
                 self.resume_list.clear()
             else:
+                self.song_count = self.song_count - 2
                 self.exited.clear()
                 self.resume_list.clear()
                 self.play()
