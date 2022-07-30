@@ -117,6 +117,8 @@ class tkinter_main(tk.Tk):
                                                command=self.shuffle_update_bundle)
         # all in bottom_frame_play get defined by self.update_play_pause, which handles all that logic
         self.bottom_frame_play = tk.Button(self.bottom_frame)
+        self.bottom_frame_volume = ttk.Scale(self.bottom_frame, from_=0.001, to=0.2, orient="horizontal",
+                                             command=volume_slider_controller)
         # Which is called here, should default to text='play' * command=self.play_with_cooldown
         self.update_play_pause()
         self.update_shuffle()
@@ -127,6 +129,7 @@ class tkinter_main(tk.Tk):
         self.bottom_frame_skip_backwards.place(x=300, y=35)
         self.bottom_frame_play.place(x=450, y=35)
         self.bottom_frame_shuffle.place(x=750, y=30)
+        self.bottom_frame_volume.place(x=900, y=30)
 
         #self.bottom_frame_play_pause = tk.Button(self.bottom_frame, text='play', command=)
 
@@ -479,6 +482,11 @@ class music_player:
     as it will be able to reproduce the audiosegment after the pause is called, because it will know the time to resume 
     at immediately after. Only downside is pausing and resuming repedatly will cause problems in terms of preformance
     """
+    def kthread_check_thr(self):
+        thr = threading.Thread(target=self.kthread_check)
+        thr.start()
+
+
 
     def kthread_check(self):
         print('kthread called')
@@ -539,7 +547,7 @@ class music_player:
             self.thr = KThread(target=self.testsong)
             self.song_begin = time.time()
             self.thr.start()
-        self.kthread_check()
+        self.kthread_check_thr()
 
 
 
@@ -699,7 +707,8 @@ class music_player:
                 # Try loop so on begin it doesn't cry
                 self.stop()
             except AttributeError:
-                pass
+                self.song_count += 1
+                self.play()
             finally:
                 # Resets the status of self.exited.clear() it will be ready to play again
                 self.exited.clear()
@@ -729,20 +738,23 @@ class music_player:
 
     def skip_backwards(self, option=None):
         if self.song_count == 1:
-            pass
+            print('can\'t be going back like dat!')
         else:
             if self.pause_bool is False:
                 self.exited.set()
                 self.song_count = self.song_count - 2
-                self.stop()
+                try:
+                    self.stop()
+                except AttributeError:
+                    self.play()
                 self.exited.clear()
                 self.resume_list.clear()
             else:
                 self.exited.clear()
                 self.resume_list.clear()
-                self.song_count = self.song_count - 2
                 self.play()
                 self.pause_bool = False
+
 
     def add_times(self):
         to_return = 0

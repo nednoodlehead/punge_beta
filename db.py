@@ -1,10 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy import Column, String
 from sqlalchemy.ext.declarative import declarative_base
-#from sqlalchemy.orm import sessionmaker
-#connect with database
-engine = create_engine('sqlite:///MAINPLAYLIST.sqlite') #echo=True
-#Manage tables
+engine = create_engine('sqlite:///MAINPLAYLIST.sqlite')
 base = declarative_base()
 
 class import_info123(base):
