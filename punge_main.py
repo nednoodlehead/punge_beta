@@ -81,6 +81,7 @@ class tkinter_main(tk.Tk):
         everyones_music.controller = self
         self.shared_data = {}
         self.music_obj = None
+        self.viewed_playlist = 'Main'
         # Will set shared_data
         everyones_music.app_launch_setup_thr()
         # self.properclose required for the app to stop playing music on exit
@@ -369,6 +370,7 @@ class tkinter_main(tk.Tk):
 
 
     def switch_to_playlist(self, playlist_in):
+        self.viewed_playlist = playlist_in
         self.show_frame(active_playlist)
 
 
@@ -699,6 +701,7 @@ class music_player:
         self.print_debug("stop")
 
     def skip_forwards(self, option=None):
+        self.coming_from_loop = False
         if self.pause_bool is False:
             # Kills the self.exited.wait() timer
             self.exited.set()
@@ -734,9 +737,8 @@ class music_player:
         print('\n \n')
 
 
-
-
     def skip_backwards(self, option=None):
+        self.coming_from_loop = False
         if self.song_count == 1:
             print('can\'t be going back like dat!')
         else:
@@ -750,6 +752,7 @@ class music_player:
                 self.exited.clear()
                 self.resume_list.clear()
             else:
+                self.song_count = self.song_count - 2
                 self.exited.clear()
                 self.resume_list.clear()
                 self.play()
@@ -1369,6 +1372,7 @@ class active_playlist(tk.Frame):
         play_playlist_button = Button(self, text="play!", command=self.play_playlist)
         play_playlist_button.place(x=250, y=25)
         self.bind("<<ShowFrame>>", self.on_page_begin)
+        self.playlist = ''
         print(f'global playlist right before used: {self.controller.shared_data["playlist"]}')
         self.playlist_frame = Frame(self)
         self.playlist_frame.place(x=110, y=100)
@@ -1416,41 +1420,49 @@ class active_playlist(tk.Frame):
         everyones_music.play()
         self.new_frame()
 
-
-
     def play_specifically(self):
-        # Choosen song = song user wants to play
         for y in self.playlist_table.selection():
-            print(f'y: {y} . playlist.selection: {self.playlist_table.selection()}')
             chosen_song = self.playlist_table.item(y, 'values')
-            print(f'z: {chosen_song[5]} in {self.controller.shared_data["playlist"]}')
+            print(f'chosen_song = {chosen_song}')
+            print(f'choosen playlist! {self.playlist}')
+            self.controller.music_obj = {
+                import_music(chosen_song[0], chosen_song[1], chosen_song[2], chosen_song[3], chosen_song[4],
+                             chosen_song[5])
+            }
+            self.controller.shared_data['playlist'] = self.playlist
             everyones_music.query_list()
-            print(everyones_music.current_playlist)
             for entry in everyones_music.current_playlist:
                 if entry.Uniqueid == chosen_song[5]:
                     new_song = everyones_music.current_playlist.index(entry)
                     everyones_music.song_count = new_song
-        print("CALLED BY play_specifically")
-        everyones_music.play()
+            everyones_music.play()
+
+
 
 
     def shown(self, event):
         print("New thingy shown")
 
     def on_page_begin(self, event):
+        # Deletes all of the current data in the Treeview
         self.playlist_table.delete(*self.playlist_table.get_children())
+        # Sets the viewing playlist equal to the playlist set when clicking the right menu (defined in switch_to_playlis
+        # We also use [0] because it returns the data as a tuple with 1 entry.
+        self.playlist = self.controller.viewed_playlist[0]
+        # Re-queries the list to show what user clicked on (right menu)
         self.new_query_all("event")
         # query is done so that playing a specific song is allowed to pick and choose from the list of objects
         # and remove the one selected, and place at begining
-        everyones_music.query_list()
+
 
     def new_query_all(self, event):
         con1 = sqlite3.connect("./MAINPLAYLIST.sqlite")
         cur1 = con1.cursor()
         print(f'gbl playlist type: {type(self.controller.shared_data["playlist"])}:'
               f' {self.controller.shared_data["playlist"]}')
+        print(f'self.playlist = {self.playlist}')
         cur1.execute("SELECT Author, Title, Album, Savelocation, SavelocationThumb, Uniqueid FROM {}".format(
-            self.controller.shared_data['playlist']))
+            self.playlist))
         # from 'main' need to inherit from a selelection from mainpage that includes a playlistname
         rows = cur1.fetchall()
         for row in rows:
