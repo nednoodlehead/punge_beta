@@ -24,6 +24,7 @@ import sys
 from system_hotkey import SystemHotkey
 import json
 global_hotkey = SystemHotkey()
+import data_clean as dc
 
 
 # A kill()-able thread. Needed for the music. i forget source of this :(. will add later !
@@ -972,6 +973,15 @@ class Settings(tk.Frame):
         self.delete_combobox.place(x=700, y=225)
         self.delete_button = ttk.Button(self, text='Delete!', command=self.delete_from_combobox)
         self.delete_button.place(x=700, y=250)
+        self.clean_button = ttk.Button(self, text='Clean Folders', command=self.clean_confirm)
+        self.clean_button.place(x=750, y=15)
+
+    def clean_confirm(self):
+        is_sure = tk.messagebox.askokcancel('Are you sure?', "This will delete all files in your Punge download folder"
+                                                             "that isn't listed in the Database (MAINPLAYLIST.sqlite)")
+        if is_sure is True:
+            dc.delete_all(dc.in_dir_not_db()[0], dc.in_dir_not_db()[1])
+
 
     def read_entries(self):
         with open(self.path, 'r') as file:
