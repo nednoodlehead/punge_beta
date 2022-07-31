@@ -67,8 +67,6 @@ fn in_dir_not_db(py: Python<'_>) -> (PyObject, PyObject) {
         }
 
     }
-    //println!("mp3_list:: {:?}", &mp3_list);
-    //println!("JPG_LIST:: {:?}", &jpg_list);
 
     for jpg_file in dir_contents_jpg {
         if !jpg_list.contains(&jpg_file) {
@@ -95,13 +93,7 @@ fn delete_all(in_vec_jpg: Vec<String>, in_vec_mp3: Vec<String> ) {
         println!("deleted: {}", &item)
     }
 }
-/*
-#[pyfunction]
-fn print_it(one: String, two: String) -> String {
-    let news = MusicDerived{mp3: one, jpg: two};
-    return news.mp3
-}
-*/
+
 
 
 #[pymodule]
