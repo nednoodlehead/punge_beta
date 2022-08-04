@@ -76,10 +76,13 @@ class tkinter_main(tk.Tk):
         self.resizable(False, False)
         self.configure(bg="#272c34")
         self.title("Punge Testing")
-        self.iconbitmap("./punge icon.ico")
+        self.iconbitmap("./img/punge icon.ico")
         self.option_add('*tearOff', FALSE)
         # Data regarding active music being passed around to controller and currently_playing frame
         everyones_music.controller = self
+        # TODO should take direct information from the song playing. something something, change the main_music_loop
+        # TODO to take data directly from this self.music_obj. Sometimes when song is ending and shuffle is called, the
+        # TODO song playing and the song punge says is playing mismatch. make it more uniform & standardized
         self.shared_data = {}
         self.music_obj = None
         self.viewed_playlist = 'Main'
@@ -91,6 +94,15 @@ class tkinter_main(tk.Tk):
         # Not behave properly
         self.bind("<Alt_L>F4", self.proper_close)
         self.bind("<Alt_R>F4", self.proper_close)
+        # init images used for buttons!
+        self.right_arrow_img = tk.PhotoImage(file="F:/Projects/Python Projects/punge/img/punge_right_new.png")
+        self.left_arrow_img = tk.PhotoImage(file="F:/Projects/Python Projects/punge/img/punge_left_new.png")
+        self.shuffle_on_img = tk.PhotoImage(file="F:/Adobe/Punge WIP/To use/shuffle_on_new.png")
+        self.shuffle_off_img = tk.PhotoImage(file="F:/Adobe/Punge WIP/To use/shuffle_off_new.png")
+        self.play_img = tk.PhotoImage(file="F:/Projects/Python Projects/punge/img/punge_play_new.png")
+        self.pause_img = tk.PhotoImage(file="F:/Projects/Python Projects/punge/img/punge_pause_new.png")
+
+
         main_page_frame = tk.Frame(self)
         main_page_frame.pack(side="top", fill="both", expand=True)
         main_page_frame.grid_rowconfigure(0, weight=1)
@@ -99,41 +111,53 @@ class tkinter_main(tk.Tk):
         right_frame.configure('right.TFrame', background='#262626')
         bottom_frame_style = ttk.Style()
         bottom_frame_style.configure('bottom.TFrame', background='#1b1b1c')
+        bottom_frame_button_style = ttk.Style()
+        bottom_frame_scale = ttk.Style()
+        bottom_frame_scale.configure('Horizontal.TScale', background='#1b1b1c')
+        bottom_frame_button_style.configure('TButton', borderwidth=0, activeforeground="#1b1b1c",
+                                activebackground="#1b1b1c", foreground="#1b1b1c", background="#1b1b1c")
         tk.Button(self, text='DEBUG !', command=everyones_music.debug).place(x=100, y=10)
         tk.Button(self, text='Playlist debug', command=everyones_music.list_debug).place(x=100, y=40)
         self.root_frame = ttk.Frame(self, style='right.TFrame', height=925, width=200)
         self.root_frame.place(x=1050, y=0)
         self.bottom_frame = ttk.Frame(self, style='bottom.TFrame', height=75, width=1250)
         self.bottom_frame.place(x=0, y=675)
-        print(self.shared_data)
+        self.skip_forwards_img = Image.open("./img/punge_right_new.png")
         bottom_frame_text_style = ttk.Style()
         bottom_frame_text_style.configure('bottom.TLabel', background='#1b1b1c', foreground='#9e9e9e')
         self.bottom_frame_song = ttk.Label(self.bottom_frame, text="", style='bottom.TLabel')
         self.bottom_frame_album = ttk.Label(self.bottom_frame, text="", style='bottom.TLabel')
         self.bottom_frame_author = ttk.Label(self.bottom_frame, text="", style='bottom.TLabel')
-        self.bottom_frame_skip_forwards = ttk.Button(self.bottom_frame, text='skip forwards',
-                                                     command=everyones_music.skip_forwards)
-        self.bottom_frame_skip_backwards = ttk.Button(self.bottom_frame, text='skip backwards',
-                                                     command=everyones_music.skip_backwards)
-        self.bottom_frame_shuffle = ttk.Button(self.bottom_frame, text='shuffle',
-                                               command=self.shuffle_update_bundle)
+        self.bottom_frame_skip_forwards = tk.Button(self.bottom_frame, image=self.right_arrow_img,
+                                                     command=everyones_music.skip_forwards, borderwidth=0,
+                                                    activeforeground="#1b1b1c", activebackground="#1b1b1c",
+                                                    foreground="#1b1b1c", background="#1b1b1c")
+        self.bottom_frame_skip_backwards = tk.Button(self.bottom_frame, image=self.left_arrow_img,
+                                                     command=everyones_music.skip_backwards, borderwidth=0,
+                                                    activeforeground="#1b1b1c", activebackground="#1b1b1c",
+                                                    foreground="#1b1b1c", background="#1b1b1c" )
+        self.bottom_frame_shuffle = tk.Button(self.bottom_frame, text='',
+                                                    command=self.shuffle_update_bundle, borderwidth=0,
+                                                    activeforeground="#1b1b1c", activebackground="#1b1b1c",
+                                                    foreground="#1b1b1c", background="#1b1b1c" )
         # all in bottom_frame_play get defined by self.update_play_pause, which handles all that logic
-        self.bottom_frame_play = tk.Button(self.bottom_frame)
+        self.bottom_frame_play = tk.Button(self.bottom_frame, borderwidth=0,
+                                                    activeforeground="#1b1b1c", activebackground="#1b1b1c",
+                                                    foreground="#1b1b1c", background="#1b1b1c")
         self.bottom_frame_volume = ttk.Scale(self.bottom_frame, from_=0.001, to=0.2, orient="horizontal",
-                                             command=volume_slider_controller)
+                                             command=volume_slider_controller, style='Horizontal.TScale')
         # Which is called here, should default to text='play' * command=self.play_with_cooldown
         self.update_play_pause()
         self.update_shuffle()
         self.bottom_frame_song.place(x=110, y=10)
         self.bottom_frame_album.place(x=110, y=50)
         self.bottom_frame_author.place(x=110, y=30)
-        self.bottom_frame_skip_forwards.place(x=600, y=35)
-        self.bottom_frame_skip_backwards.place(x=300, y=35)
-        self.bottom_frame_play.place(x=450, y=35)
-        self.bottom_frame_shuffle.place(x=750, y=30)
-        self.bottom_frame_volume.place(x=900, y=30)
+        self.bottom_frame_skip_forwards.place(x=525, y=15)
+        self.bottom_frame_skip_backwards.place(x=335, y=15)
+        self.bottom_frame_play.place(x=460, y=15)
+        self.bottom_frame_shuffle.place(x=675, y=15)
+        self.bottom_frame_volume.place(x=750, y=30)
 
-        #self.bottom_frame_play_pause = tk.Button(self.bottom_frame, text='play', command=)
 
         self.frames = {}
         for each_frame in (Main_page, Currently_playing, Settings, Download, mp4_downloader, active_playlist):
@@ -145,7 +169,7 @@ class tkinter_main(tk.Tk):
         # binds also need to be able to configure buttons to change states. Like text=shuffle or text=not shuffle.
         global_hotkey.register(['control', 'right'], callback=everyones_music.skip_forwards)
         global_hotkey.register(['control', 'left'], callback=everyones_music.skip_backwards)
-        global_hotkey.register(['control', 'end'], callback=everyones_music.pause_play_toggle)
+        global_hotkey.register(['control', 'end'], callback=self.global_keybind_play)
         global_hotkey.register(['control', 'up'], callback=static_increment_bind)
         global_hotkey.register(['control', 'down'], callback=static_decrease_bind)
         self.query_all_playlists()
@@ -161,7 +185,7 @@ class tkinter_main(tk.Tk):
         # is set
         everyones_music.flicker.set()
 
-    def global_keybind_play(self):
+    def global_keybind_play(self, event=None):
         everyones_music.pause_play_toggle()
         self.update_play_pause()
 
@@ -169,20 +193,22 @@ class tkinter_main(tk.Tk):
         if everyones_music.shuffle is True:
             everyones_music.shuffle = False
             everyones_music.reassemble_list()
-            self.bottom_frame_shuffle.configure(text='SHUFFLE IS OFF')
+            self.bottom_frame_shuffle.configure(image=self.shuffle_off_img)
         else:
             everyones_music.shuffle = True
             everyones_music.scramble_playlist()
-            self.bottom_frame_shuffle.configure(text='SHUFFLE IS ON')
+            self.bottom_frame_shuffle.configure(image=self.shuffle_on_img)
 
+    # TODO perhaps update to contain the first if & elif into one if, and move the logic of 'is not playing yadda yadda'
+    # TODO into the music class.
     def update_play_pause(self):
         if not everyones_music.thr.is_alive() and not everyones_music.pause_bool:
-            self.bottom_frame_play.configure(text="Play", command=self.play_with_cooldown)
+            self.bottom_frame_play.configure(image=self.play_img, command=self.play_with_cooldown)
         elif everyones_music.pause_bool is True:
-            self.bottom_frame_play.configure(text="Resume", command=self.resume_pause_toggle)
+            self.bottom_frame_play.configure(image=self.play_img, command=self.resume_pause_toggle)
         else:
             print(f'thr_isalive {everyones_music.thr.is_alive()} pausebool: {everyones_music.pause_bool}')
-            self.bottom_frame_play.configure(text="Stop", command=self.resume_pause_toggle)
+            self.bottom_frame_play.configure(image=self.pause_img, command=self.resume_pause_toggle)
 
     def resume_pause_toggle(self):
         self.bottom_frame_play.configure(state='disabled')
@@ -194,17 +220,17 @@ class tkinter_main(tk.Tk):
     def update_shuffle(self):
         if everyones_music.shuffle is True:
             print(f'update_shuf IS ON : {everyones_music.shuffle}')
-            self.bottom_frame_shuffle.configure(text='SHUFFLE IS ON')
+            self.bottom_frame_shuffle.configure(image=self.shuffle_on_img)
         else:
             print(f'update_shuf IS OFF : {everyones_music.shuffle}')
-            self.bottom_frame_shuffle.configure(text='SHUFFLE IS OFF')
+            self.bottom_frame_shuffle.configure(image=self.shuffle_off_img)
 
 
 
     def send_update_labels(self):
         # Include little thumbnail eventually?
         # For some godforsaken reason, if this 'for' loop is removed, the labels fail to update. 'class has no bottom_
-        # frame_song' headass. it like makes it double check. 'oh it is there, my bad'
+        # frame_song' headbutt. it like makes it double check. 'oh it is there, my bad'
         for _ in self.bottom_frame.winfo_children():
             pass
         self.bottom_frame_song.configure(text=self.music_obj.Title)
@@ -579,10 +605,14 @@ class music_player:
         function, we define both of those (New definitions ((loop based)) are created after the self.playback is called)
         """
         if called_with == None:
-            self.update_frame_labels(self.current_playlist[self.song_count])
             self.set_shared_data()
-            self.song = AudioSegment.from_file(self.current_playlist[self.song_count].Savelocation)
-            self.main_music_loop()
+            self.controller.music_obj = self.current_playlist[self.song_count]
+            self.controller.send_update_labels()
+            self.song = AudioSegment.from_file(self.controller.music_obj.Savelocation)
+            try:
+                self.main_music_loop()
+            except RuntimeError:
+                pass # Used to ignore warning on app close. Not 100% sure why this calls like this though...
         else:
             self.main_music_loop()
 
@@ -600,8 +630,8 @@ class music_player:
                 self.playback = pydub.playback._play_with_simpleaudio(self.song)
                 # Adjusting the class variables for next time the loop runs
                 self.sleeptimer = self.song.duration_seconds
-                # Defines the song_obj for the class to use. Keeps up with the current running song.
-                self.update_frame_labels(self.current_playlist[self.song_count])
+                # tells the bottombar to update to new music_obj
+                self.controller.send_update_labels()
                 self.set_shared_data()
                 # Defines next song in rotation (based on incrementing number in list index)
                 self.song_count = self.song_count + 1
@@ -610,7 +640,10 @@ class music_player:
                 print(f'current song: {self.current_playlist[self.song_count - 1].Title} sngcount: {self.song_count-1}')
                 self.exited.wait(self.sleeptimer)
                 # Creates the audiosegment from the new song
-                self.song = AudioSegment.from_file(self.current_playlist[self.song_count].Savelocation)
+                self.controller.music_obj = self.current_playlist[self.song_count]
+                self.song = AudioSegment.from_file(self.controller.music_obj.Savelocation)
+                # Might not be needed cause its done above... unsure though
+                self.controller.send_update_labels()
                 print(f"main_music has turned song_obj into: {self.controller.music_obj}")
                 # Makes the resume will make this false if called, else: it'll clear the list each time
                 self.coming_from_loop = True
@@ -620,7 +653,8 @@ class music_player:
                 # Loops back to beginning of playlist if the final song is played
                 self.song_count = 0
                 # Loads the first song
-                self.song = AudioSegment.from_file(self.current_playlist[self.song_count].Savelocation)
+                self.controller.music_obj = self.current_playlist[self.song_count]
+                self.song = AudioSegment.from_file(self.controller.music_obj.Savelocation)
                 self.update_frame_labels(self.current_playlist[self.song_count])
                 self.set_shared_data()
                 # Continues loop -> to first song
@@ -766,7 +800,8 @@ class music_player:
             to_return += item
         return to_return
 
-
+    # TODO a fix for the spam-clicking of play/pause, is when resume here is called, it sets a .controller flag so that
+    # TODO it cannot be re-called until resume has finished executing
     def resume(self):
         print("##RESUME##")
         self.exited.clear()
