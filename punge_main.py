@@ -643,7 +643,7 @@ class music_player:
                 self.controller.music_obj = self.current_playlist[self.song_count]
                 self.song = AudioSegment.from_file(self.controller.music_obj.Savelocation)
                 # Might not be needed cause its done above... unsure though
-                self.controller.send_update_labels()
+                #self.controller.send_update_labels()
                 print(f"main_music has turned song_obj into: {self.controller.music_obj}")
                 # Makes the resume will make this false if called, else: it'll clear the list each time
                 self.coming_from_loop = True
@@ -726,6 +726,7 @@ class music_player:
         self.controller.shared_data['shuffle'] = self.shuffle
 
     def stop(self):
+        print(f'obj: {self.controller.music_obj}')
         self.is_playing = False
         self.pause_time = time.time() - self.song_begin
         self.pause_time *= 1000
@@ -812,7 +813,8 @@ class music_player:
         self.resume_list.append(self.pause_time)
         self.song_count -= 1
         new_time = 0
-        self.song = AudioSegment.from_file(self.current_playlist[self.song_count].Savelocation)
+        self.controller.music_obj = self.current_playlist[self.song_count]
+        self.song = AudioSegment.from_file(self.controller.music_obj.Savelocation)
         for true_time in self.resume_list:
             new_time += true_time
         print(f'new_time (should be in ms) = {new_time}')
