@@ -647,6 +647,7 @@ class music_player:
                 print(f"main_music has turned song_obj into: {self.controller.music_obj}")
                 # Makes the resume will make this false if called, else: it'll clear the list each time
                 self.coming_from_loop = True
+                self.kthread_check_thr()
             except IndexError:
                 # Catches when the final song is played and dives back in. Perhaps a reshuffle at this point?
                 print("index error raied in main loop")
@@ -721,7 +722,7 @@ class music_player:
 
     def set_shared_data(self):
         print(f'song_obj: {self.controller.music_obj}')
-        print(f'song_obj[5]: {self.controller.music_obj.Uniqueid}')
+        #print(f'song_obj[5]: {self.controller.music_obj.Uniqueid}')
         self.controller.shared_data['songid'] = self.current_playlist[self.song_count].Uniqueid
         self.controller.shared_data['shuffle'] = self.shuffle
 
@@ -839,7 +840,6 @@ class music_player:
         print(f'self.shuffle: {self.shuffle}')
         if self.shuffle is True:
             random.shuffle(big_ol_list)
-        print(f'big ol list: {big_ol_list}')
         self.current_playlist = big_ol_list
 
 
@@ -1401,6 +1401,7 @@ class import_music:
     def __repr__(self):
         return f"{self.Title} {self.Author} | "
 
+# TODO should probably reformat this class at some point :( works fine for now tho !
 class active_playlist(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
@@ -1458,6 +1459,7 @@ class active_playlist(tk.Frame):
         self.playlist_table.heading('Album', text='Album', anchor=CENTER)
         self.playlist_table.pack(expand=True, ipady="75")
         self.new_frame = lambda: controller.show_frame(Currently_playing)
+        self.re_query_all()
 
     def play_playlist(self):
         print(f'is_playing: {everyones_music.thr.is_alive()}')
@@ -1528,7 +1530,6 @@ class active_playlist(tk.Frame):
         # from 'main' need to inherit from a selelection from mainpage that includes a playlistname
         rows = cur1.fetchall()
         for row in rows:
-            print(f'row: {row}')
             self.playlist_table.insert('', tk.END, values=row)
         con1.close()
     def query_all_playlists(self):
@@ -1560,7 +1561,7 @@ class active_playlist(tk.Frame):
 
     def differ_delete(self):
         print(f'gbl in differ: {self.controller.shared_data["playlist"]}')
-        if self.controller.shared_data["playlist"] == 'main':
+        if self.playlist == 'main':
             self.full_delete_multiple()
         else:
             self.half_delete_multiple()
@@ -1593,7 +1594,7 @@ class active_playlist(tk.Frame):
         print(f'deleting: {song_named}')
         print(f'globalplaylist: {self.controller.shared_data["playlist"]} {type(self.controller.shared_data["playlist"])}')
         print(f'new_id: {new_id}')
-        concur2.execute("DELETE FROM {} WHERE Uniqueid=?".format(self.controller.shared_data["playlist"]), (new_id,))
+        concur2.execute("DELETE FROM {} WHERE Uniqueid=?".format(self.playlist), (new_id,))
         connect1.commit()
         concur2.close()
 
@@ -1632,6 +1633,8 @@ class active_playlist(tk.Frame):
         album_rename_entry = Entry(popup_rename_window)
         album_rename_entry.insert(END, selected_song[2])
         album_rename_entry.pack()
+        instruction_label = Label(popup_rename_window, text='Click "Enter" to confirm!')
+        instruction_label.pack()
 
         def rename_entry(event):
             new_author = author_rename_entry.get()
@@ -1641,7 +1644,11 @@ class active_playlist(tk.Frame):
                        values=(
                        new_author, new_title, new_album, selected_song[3], selected_song[4], selected_song[5]))
 
-        def rename_destroy_combine(event):
+        def rename_destroy_combine_thr(event):
+            thr = threading.Thread(target=rename_destroy_combine)
+            thr.start()
+
+        def rename_destroy_combine():
             rename_entry("event")
             change_database_entry("event")
             destroy_popup("event")
@@ -1663,17 +1670,18 @@ class active_playlist(tk.Frame):
             connect1.close()
 
 
-        popup_rename_window.bind("<Return>", rename_destroy_combine)
+        popup_rename_window.bind("<Return>", rename_destroy_combine_thr)
 
     def popup_rename_multiple(self, event):
         popup_rename_multiple_window = Toplevel(self)
         popup_rename_multiple_window.geometry("250x250+125+235")
         popup_rename_multiple_window.title("Rename Multiple :D")
         all_selected = self.playlist_table.selection()
+        selected_song = ''
         for one_song in all_selected:
             selected_song = self.playlist_table.item(one_song, 'values')
             print(f'selcted: {all_selected}')
-            print(f'selected_song: {selected_song}')
+            print(f'artist, album: {selected_song[0]}, {selected_song[2]}')
 
         def destroy_multiple_popup(event):
             popup_rename_multiple_window.destroy()
@@ -1687,6 +1695,9 @@ class active_playlist(tk.Frame):
         Label(popup_rename_multiple_window, text="Album").pack()
         album_rename_entry = Entry(popup_rename_multiple_window)
         album_rename_entry.pack()
+        # Filling it with the data
+        author_rename_entry.insert(END, selected_song[0])
+        album_rename_entry.insert(END, selected_song[2])
         #The entry boxes should remain empty, as multiple entries could have a differnt values. so none added
 
         def multiple_rename_entry(*event):
@@ -1739,16 +1750,15 @@ class active_playlist(tk.Frame):
         self.playlist_table.bind("<Button-3>", self.popup_event)
         self.playlist_table.bind("<Delete>", self.differ_delete)
 
-        def re_query_all(self):
-            self.un_query_all()
-            self.query_all("event")
-            print(f"requireed! global_playlist: {self.controller.shared_data['playlist']}")
+    def re_query_all(self):
+        self.un_query_all()
+        self.query_all("event")
+        print(f"requireed! global_playlist: {self.controller.shared_data['playlist']}")
 
 
-        button_refresh = Button(self, text='Refresh', command=re_query_all)
+        button_refresh = Button(self, text='Refresh', command=self.re_query_all)
         button_refresh.place(x=10, y=10)
 
-        re_query_all()
 
 # This class is very buggy but is the best way to make the volume work
 class AudioController:
