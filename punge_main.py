@@ -699,7 +699,11 @@ class music_player:
         print(f"self.song_count: {self.song_count}")
         print(f"self.sleeptimer: {self.sleeptimer}")
         print(f"self.current_playlist: {self.current_playlist}")
+        print('----')
+        print(f'previous song: {self.current_playlist[self.song_count - 1]}')
         print(f'current song: {self.current_playlist[self.song_count]}')
+        print(f'next song: {self.current_playlist[self.song_count + 1]}')
+        print('----')
         print(f"self.resume_list: {self.resume_list}")
         print(f"self.shuffle: {self.shuffle}")
         print(f"self.exited: {self.exited}")
@@ -857,7 +861,16 @@ class music_player:
 
 
     def scramble_playlist(self):
+        songid = self.controller.music_obj.Uniqueid
+        # When shuffling, will set song_count = music_obj's current spot in the new list. So if song1 is at 124. Shuffle
+        # Now that song is at position 514. It will set the song_count = 514. So shuffle -> skip for -> skip back
+        # Puts user on correct song
         random.shuffle(self.current_playlist)
+        for count, entry in enumerate(self.current_playlist):
+            if entry.Uniqueid == songid:
+                # not entirely sure why i need +1. I added it and it works as expected..
+                everyones_music.song_count = count + 1
+
 
 
     def reassemble_list(self):
@@ -866,7 +879,6 @@ class music_player:
         print(f'title we\'re taking: {cur_id}')
         # turns self.current_playlist into an unscrambled version
         self.query_list()
-        print(f"reass_list has turned song_id into: {self.controller.music_obj}")
         print(f"Should be current song: {self.current_playlist[self.song_count].Title}")
         # Iterate over each entry of said playlist
         for entry in self.current_playlist:
@@ -874,10 +886,11 @@ class music_player:
             if entry.Title == cur_id:
                 print(f"current song to grab is: {entry.Title}")
                 x = self.current_playlist.index(entry)
+                print(f'x: (value of {cur_id}: {x}')
                 if everyones_music.pause_bool is True: #new???
-                    self.song_count = x  # +1 needed????
+                    self.song_count = x
                 else:
-                    self.song_count = x + 1
+                    self.song_count = x + 1  # bruh. all i got to say
                 # +1 required because when index is got, it will get the index of the active, playing song. we want it
                 # to play the next song up.
                 print(f'end of reasemble  song_count {self.current_playlist[self.song_count].Title}')
