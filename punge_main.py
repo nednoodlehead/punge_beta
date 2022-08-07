@@ -129,11 +129,11 @@ class tkinter_main(tk.Tk):
         self.bottom_frame_album = ttk.Label(self.bottom_frame, text="", style='bottom.TLabel')
         self.bottom_frame_author = ttk.Label(self.bottom_frame, text="", style='bottom.TLabel')
         self.bottom_frame_skip_forwards = tk.Button(self.bottom_frame, image=self.right_arrow_img,
-                                                     command=everyones_music.skip_forwards, borderwidth=0,
+                                                     command=self.skip_forward_update_play, borderwidth=0,
                                                     activeforeground="#1b1b1c", activebackground="#1b1b1c",
                                                     foreground="#1b1b1c", background="#1b1b1c")
         self.bottom_frame_skip_backwards = tk.Button(self.bottom_frame, image=self.left_arrow_img,
-                                                     command=everyones_music.skip_backwards, borderwidth=0,
+                                                     command=self.skip_backwards_update_play, borderwidth=0,
                                                     activeforeground="#1b1b1c", activebackground="#1b1b1c",
                                                     foreground="#1b1b1c", background="#1b1b1c" )
         self.bottom_frame_shuffle = tk.Button(self.bottom_frame, text='',
@@ -167,8 +167,9 @@ class tkinter_main(tk.Tk):
         self.show_frame(Main_page)
         # Global hotkeys for ease of use :D. Should be adjustable and configurable
         # binds also need to be able to configure buttons to change states. Like text=shuffle or text=not shuffle.
-        global_hotkey.register(['control', 'right'], callback=everyones_music.skip_forwards)
-        global_hotkey.register(['control', 'left'], callback=everyones_music.skip_backwards)
+        global_hotkey.register(['control', 'next'], callback=self.shuffle_update_bundle)
+        global_hotkey.register(['control', 'right'], callback=self.skip_forward_update_play)
+        global_hotkey.register(['control', 'left'], callback=self.skip_backwards_update_play)
         global_hotkey.register(['control', 'end'], callback=self.global_keybind_play)
         global_hotkey.register(['control', 'up'], callback=static_increment_bind)
         global_hotkey.register(['control', 'down'], callback=static_decrease_bind)
@@ -189,7 +190,7 @@ class tkinter_main(tk.Tk):
         everyones_music.pause_play_toggle()
         self.update_play_pause()
 
-    def shuffle_update_bundle(self):
+    def shuffle_update_bundle(self, event=None):
         if everyones_music.shuffle is True:
             everyones_music.shuffle = False
             everyones_music.reassemble_list()
@@ -209,6 +210,14 @@ class tkinter_main(tk.Tk):
         else:
             print(f'thr_isalive {everyones_music.thr.is_alive()} pausebool: {everyones_music.pause_bool}')
             self.bottom_frame_play.configure(image=self.pause_img, command=self.resume_pause_toggle)
+
+    def skip_forward_update_play(self):
+        everyones_music.skip_forwards()
+        self.update_play_pause()
+
+    def skip_backwards_update_play(self):
+        everyones_music.skip_backwards()
+        self.update_play_pause()
 
     def resume_pause_toggle(self):
         self.bottom_frame_play.configure(state='disabled')
@@ -690,6 +699,7 @@ class music_player:
         print(f"self.song_count: {self.song_count}")
         print(f"self.sleeptimer: {self.sleeptimer}")
         print(f"self.current_playlist: {self.current_playlist}")
+        print(f'current song: {self.current_playlist[self.song_count]}')
         print(f"self.resume_list: {self.resume_list}")
         print(f"self.shuffle: {self.shuffle}")
         print(f"self.exited: {self.exited}")
@@ -735,7 +745,7 @@ class music_player:
         self.playback.stop()
         # Needed to reset the exited timer. One to flick it, one to reset to neutral
         self.exited.set()
-        self.print_debug("stop")
+        #self.print_debug("stop")
 
     def skip_forwards(self, option=None):
         self.coming_from_loop = False
@@ -812,6 +822,7 @@ class music_player:
         # Current time in miliseconds (metric pydub operates in)
         # Defines class variable as only a portion of a song
         self.resume_list.append(self.pause_time)
+        # -1 needed to counteract the +1 at end of main_loop
         self.song_count -= 1
         new_time = 0
         self.controller.music_obj = self.current_playlist[self.song_count]
@@ -837,6 +848,7 @@ class music_player:
         for each in rows:
             imported_music = import_music(*each)
             big_ol_list.append(imported_music)
+        print(f'big ol list: {big_ol_list[0:3]}')
         print(f'self.shuffle: {self.shuffle}')
         if self.shuffle is True:
             random.shuffle(big_ol_list)
@@ -850,27 +862,26 @@ class music_player:
 
     def reassemble_list(self):
         # Grabs the id of current song to begin at.
-        try:
-            # -1 to negate the +1 from main_loop (i think)
-           # self.controller.music_obj = self.current_playlist[self.song_count - 1].Title
-            print(f'name of song: {self.current_playlist[self.song_count -1].Title}')
-        except IndexError:
-            self.query_list()
-            self.song = self.current_playlist[0]
-        print(f"reass_list has turned song_id into: {self.controller.music_obj}")
-        print(f"Should be current song: {self.current_playlist[self.song_count - 1].Title}")
+        cur_id = self.controller.music_obj.Title
+        print(f'title we\'re taking: {cur_id}')
         # turns self.current_playlist into an unscrambled version
         self.query_list()
+        print(f"reass_list has turned song_id into: {self.controller.music_obj}")
+        print(f"Should be current song: {self.current_playlist[self.song_count].Title}")
         # Iterate over each entry of said playlist
         for entry in self.current_playlist:
             # Find where the current song sits in the unqueried list, set song_count to that number
-            if entry.Title == self.controller.music_obj.Title:
-                print(f"entry.title: {entry.Title}")
+            if entry.Title == cur_id:
                 print(f"current song to grab is: {entry.Title}")
                 x = self.current_playlist.index(entry)
+                if everyones_music.pause_bool is True: #new???
+                    self.song_count = x  # +1 needed????
+                else:
+                    self.song_count = x + 1
                 # +1 required because when index is got, it will get the index of the active, playing song. we want it
                 # to play the next song up.
-                self.song_count = x + 1
+                print(f'end of reasemble  song_count {self.current_playlist[self.song_count].Title}')
+
 
 
 everyones_music = music_player()
