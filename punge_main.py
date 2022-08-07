@@ -160,7 +160,7 @@ class tkinter_main(tk.Tk):
 
 
         self.frames = {}
-        for each_frame in (Main_page, Currently_playing, Settings, Download, mp4_downloader, active_playlist):
+        for each_frame in (Main_page, Settings, Download, mp4_downloader, active_playlist):
             frame = each_frame(main_page_frame, self)
             self.frames[each_frame] = frame
             frame.grid(row=0, column=0, sticky="nsew")
@@ -211,11 +211,11 @@ class tkinter_main(tk.Tk):
             print(f'thr_isalive {everyones_music.thr.is_alive()} pausebool: {everyones_music.pause_bool}')
             self.bottom_frame_play.configure(image=self.pause_img, command=self.resume_pause_toggle)
 
-    def skip_forward_update_play(self):
+    def skip_forward_update_play(self, event=None):
         everyones_music.skip_forwards()
         self.update_play_pause()
 
-    def skip_backwards_update_play(self):
+    def skip_backwards_update_play(self, event=None):
         everyones_music.skip_backwards()
         self.update_play_pause()
 
@@ -913,10 +913,10 @@ class Main_page(tk.Frame):
         button_main = Button(self, text="Main page", state=DISABLED)
         button_download = Button(self, text="Download", command=lambda: controller.show_frame(Download))
         button_settings = Button(self, text="Settings", command=lambda: controller.show_frame(Settings))
-        button_current = Button(self, text="Currently playing", command=lambda: controller.show_frame(Currently_playing))
+
         button_mp4 = Button(self, text="Video downloader", command=lambda: controller.show_frame(mp4_downloader))
         button_main.place(x=0, y=125)
-        button_current.place(x=0, y=150)
+
         button_download.place(x=0, y=175)
         button_settings.place(x=0, y=200)
         button_mp4.place(x=0, y=225)
@@ -925,83 +925,7 @@ class Main_page(tk.Frame):
 
 
 
-class Currently_playing(tk.Frame):
-    def __init__(self, parent, controller):
-        tk.Frame.__init__(self, parent)
-        self.configure(bg="#272c34")
-        Label(self, text="THIS IS Currently playing tab").pack()
-        button_main = Button(self, text="Main page", command=lambda: controller.show_frame(Main_page))
-        button_download = Button(self, text="Download", command=lambda: controller.show_frame(Download))
-        button_settings = Button(self, text="Settings", command=lambda: controller.show_frame(Settings))
-        button_current = Button(self, text="Currently playing", state=DISABLED)
-        button_mp4 = Button(self, text="Video downloader", command=lambda: controller.show_frame(mp4_downloader))
-        button_playlist = Button(self, text="Currently playlist", command=lambda: controller.show_frame(active_playlist))
-        button_main.place(x=0, y=125)
-        button_current.place(x=0, y=150)
-        button_download.place(x=0, y=175)
-        button_settings.place(x=0, y=200)
-        button_mp4.place(x=0, y=225)
-        button_playlist.place(x=0, y=250)
 
-
-        #I hate images in tkinter
-        #    path1 = Image.open("F:/Files at random/MUSICAL/thumbnails/Death Grips - HackeruoZgZT4DGSY.jpg")
-        #    opened_thumb = ImageTk.PhotoImage(path1)
-        #    mei = Label(self, image=opened_thumb)
-        #    mei.place(x=200, y=200)
-
-        play_button = ttk.Button(self, text="Play", command=everyones_music.thd) #added args of selected playlist
-        play_button.place(relx=.5, rely=.8)
-
-        slider = ttk.Scale(self, from_=0.01, to=0.2, orient="horizontal", command=volume_slider_controller)
-        slider.place(rely=.5, relx=.5)
-
-        self.resume_button = ttk.Button(self, text="TESTING BUTTON", command=self.resume_pause_toggle)
-        self.resume_button.place(relx=.5, rely=.75)
-
-#        self.shuffle_button = ttk.Button(self, text="Shuffle (off)", command=everyones_music.update_playlist)
-#        self.shuffle_button.place(x=250, y=400)
-
-        mute_button = ttk.Button(self, text="mute", command=volume_mute)
-        mute_button.place(rely=.5, relx=.65)
-
-        skip_forwards = ttk.Button(self, text="Skip LOL", command=everyones_music.skip_forwards)
-        skip_forwards.place(rely=.3, relx=.5)
-
-        skip_backwards = ttk.Button(self, text="Skip back", command=everyones_music.skip_backwards)
-        skip_backwards.place(rely=.85, relx=.25)
-        # self.shuffle_toggle()  # Called so it defaults properly
-
-    def resume_pause_toggle(self):
-        self.play_pause_update()
-        everyones_music.pause_play_toggle()
-        self.play_pause_update()
-
-    def play_update(self):
-        everyones_music.query_list()
-        print("CALLED BY play_update")
-        everyones_music.play()
-
-    def play_pause_update(self):
-        if not everyones_music.thr.is_alive() and not everyones_music.pause_bool:
-            self.resume_button.configure(text="Play", command=everyones_music.play)
-        elif everyones_music.pause_bool is True:
-            self.resume_button.configure(text="Resume", command=self.resume_pause_toggle)
-        else:
-            print(f'thr_isalive {everyones_music.thr.is_alive()} pausebool: {everyones_music.pause_bool}')
-            self.resume_button.configure(text="Stop", command=self.resume_pause_toggle)
-
-
-    def shuffle_button_refresh(self):
-        # This controls the entire shuffle system. everytime this button is clicked it will either scramble playlist
-        # or find the index of the song relative to the unshuffled playlist and start from there.
-        print(f'shuffle: {everyones_music.shuffle}')
-        if everyones_music.shuffle is True:
-            print("playlist scrambled!")
-            self.shuffle_button.configure(text="Shuffle (turn off)")
-        else:
-            print("list reassemabled!")
-            self.shuffle_button.configure(text="shuffle (Turn on)")
 
 
 
@@ -1011,12 +935,11 @@ class Settings(tk.Frame):
         self.configure(bg="#272c34")
         Label(self, text="THIS IS Settings location :D").pack()
         button_main = Button(self, text="Main page", command=lambda: controller.show_frame(Main_page))
-        button_current = Button(self, text="Currently playing", command=lambda: controller.show_frame(Currently_playing))
+
         button_download = Button(self, text="Download", command=lambda: controller.show_frame(Download))
         button_settings = Button(self, text="Settings", state=DISABLED)
         button_mp4 = Button(self, text="Video downloader", command=lambda: controller.show_frame(mp4_downloader))
         button_main.place(x=0, y=125)
-        button_current.place(x=0,y=150)
         button_download.place(x=0, y=175)
         button_settings.place(x=0,y=200)
         button_mp4.place(x=0, y=225)
@@ -1093,18 +1016,19 @@ class Download(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.configure(bg="#272c34")
-        Label(self, text="THis is where downloading will occur").pack()
-        Label(self, text="Will include a search area aswell. Including clipboard mode").pack() #TODO Search functionality
         button_main = Button(self, text="Main page", command=lambda: controller.show_frame(Main_page))
-        button_current = Button(self, text="Currently playing", command=lambda: controller.show_frame(Currently_playing))
+
         button_download = Button(self, text="Download", state=DISABLED)
         button_settings = Button(self, text="Settings", command=lambda: controller.show_frame(Settings))
         button_mp4 = Button(self, text="Video downloader", command=lambda: controller.show_frame(mp4_downloader))
         button_main.place(x=0, y=125)
-        button_current.place(x=0, y=150)
+
         button_download.place(x=0, y=175)
         button_settings.place(x=0, y=200)
         button_mp4.place(x=0, y=225)
+        Label(self, text='To download music for Punge, go over to youtube, and copy a link of a song, paste it into '
+                         'the top box. Press enter or click download to download it. The song will show up in \'main\''
+                         'playlist', wraplength=500).pack()
 
         # -----Listism-----#
         elite_fileloc = "F:/Punge Downloads/Downloads/"  # These will be detirmined by user eventualy
@@ -1296,12 +1220,10 @@ class mp4_downloader(tk.Frame):
         self.configure(bg="#272c34")
         self.controller = controller
         button_main = Button(self, text="Main page", command=lambda: controller.show_frame(Main_page))
-        button_current = Button(self, text="Currently playing", command=lambda: controller.show_frame(Currently_playing))
         button_download = Button(self, text="Download", command=lambda: controller.show_frame(Download))
         button_settings = Button(self, text="Settings", command=lambda: controller.show_frame(Settings))
         button_mp4 = Button(self, text="Video downloader", state=DISABLED)
         button_main.place(x=0, y=125)
-        button_current.place(x=0,y=150)
         button_download.place(x=0, y=175)
         button_settings.place(x=0,y=200)
         button_mp4.place(x=0, y=225)
@@ -1432,12 +1354,10 @@ class active_playlist(tk.Frame):
         self.configure(bg="#272c34")
         self.controller = controller
         button_main = Button(self, text="Main page", command=lambda: controller.show_frame(Main_page))
-        button_current = Button(self, text="Currently playing", command=lambda: controller.show_frame(Currently_playing))
         button_download = Button(self, text="Download", command=lambda: controller.show_frame(Download))
         button_settings = Button(self, text="Settings", command=lambda: controller.show_frame(Settings))
         button_mp4 = Button(self, text="Video downloader", command=lambda: controller.show_frame(mp4_downloader))
         button_main.place(x=0, y=125)
-        button_current.place(x=0, y=150)
         button_download.place(x=0, y=175)
         button_settings.place(x=0, y=200)
         button_mp4.place(x=0, y=225)
@@ -1482,7 +1402,6 @@ class active_playlist(tk.Frame):
         self.playlist_table.heading('Song', text="Song", anchor=CENTER)
         self.playlist_table.heading('Album', text='Album', anchor=CENTER)
         self.playlist_table.pack(expand=True, ipady="75")
-        self.new_frame = lambda: controller.show_frame(Currently_playing)
         self.re_query_all()
 
     def play_playlist(self):
