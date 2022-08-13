@@ -669,6 +669,8 @@ class music_player:
                 self.set_shared_data()
                 # Continues loop -> to first song
                 continue
+            if not self.exited.is_set():
+                self.resume_list.clear()
 
 
 
@@ -916,10 +918,9 @@ class Main_page(tk.Frame):
 
         button_mp4 = Button(self, text="Video downloader", command=lambda: controller.show_frame(mp4_downloader))
         button_main.place(x=0, y=125)
-
-        button_download.place(x=0, y=175)
-        button_settings.place(x=0, y=200)
-        button_mp4.place(x=0, y=225)
+        button_download.place(x=0, y=150)
+        button_settings.place(x=0, y=175)
+        button_mp4.place(x=0, y=200)
 
 
 
@@ -940,9 +941,9 @@ class Settings(tk.Frame):
         button_settings = Button(self, text="Settings", state=DISABLED)
         button_mp4 = Button(self, text="Video downloader", command=lambda: controller.show_frame(mp4_downloader))
         button_main.place(x=0, y=125)
-        button_download.place(x=0, y=175)
-        button_settings.place(x=0,y=200)
-        button_mp4.place(x=0, y=225)
+        button_download.place(x=0, y=150)
+        button_settings.place(x=0, y=175)
+        button_mp4.place(x=0, y=200)
         self.json_button = tk.Button(self, text='add to json', command=self.add_entry)
         self.json_button.place(x=500, y=200)
         self.path = "./Cache/downloadlocation.json"
@@ -1022,10 +1023,9 @@ class Download(tk.Frame):
         button_settings = Button(self, text="Settings", command=lambda: controller.show_frame(Settings))
         button_mp4 = Button(self, text="Video downloader", command=lambda: controller.show_frame(mp4_downloader))
         button_main.place(x=0, y=125)
-
-        button_download.place(x=0, y=175)
-        button_settings.place(x=0, y=200)
-        button_mp4.place(x=0, y=225)
+        button_download.place(x=0, y=150)
+        button_settings.place(x=0, y=175)
+        button_mp4.place(x=0, y=200)
         Label(self, text='To download music for Punge, go over to youtube, and copy a link of a song, paste it into '
                          'the top box. Press enter or click download to download it. The song will show up in \'main\''
                          'playlist', wraplength=500).pack()
@@ -1358,9 +1358,9 @@ class active_playlist(tk.Frame):
         button_settings = Button(self, text="Settings", command=lambda: controller.show_frame(Settings))
         button_mp4 = Button(self, text="Video downloader", command=lambda: controller.show_frame(mp4_downloader))
         button_main.place(x=0, y=125)
-        button_download.place(x=0, y=175)
-        button_settings.place(x=0, y=200)
-        button_mp4.place(x=0, y=225)
+        button_download.place(x=0, y=150)
+        button_settings.place(x=0, y=175)
+        button_mp4.place(x=0, y=200)
         play_playlist_button = Button(self, text="play!", command=self.play_playlist)
         play_playlist_button.place(x=250, y=25)
         self.bind("<<ShowFrame>>", self.on_page_begin)
@@ -1373,11 +1373,10 @@ class active_playlist(tk.Frame):
         for playlist_name in self.query_all_playlists(): #inherits last one. all 1 command. want seperate if access quer() with [0]. iterator!
             playlist_submenu.add_command(label=playlist_name, command=lambda playlist_name=playlist_name: self.add_to_playlist(playlist_name))
         self.song_menu.add_cascade(label="Add to:", menu=playlist_submenu)
-        self.song_menu.add_command(label="Play", command=lambda: self.play_playlist("y"))
+        self.song_menu.add_command(label="Play", command=self.play_specifically)
         self.song_menu.add_command(label="Rename", command=lambda: self.popup_rename("x"))
         self.song_menu.add_command(label="Delete", command=self.differ_delete)
         self.song_menu.add_command(label="Rename Multiple", command=lambda: self.popup_rename_multiple("x"))
-        self.song_menu.add_command(label="Test type", command=self.play_specifically)
         self.playlist_title = ttk.Label(self, textvariable=self.controller.shared_data['playlist'], anchor="center",
                                         background='#272c34', font=('Arial', 40))
         self.playlist_title.place(y=15, x=100)
