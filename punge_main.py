@@ -942,6 +942,12 @@ class Settings(tk.Frame):
         button_download.place(x=0, y=150)
         button_settings.place(x=0, y=175)
         button_mp4.place(x=0, y=200)
+        repair_db_frame = tk.Frame(self, width=200, height=150, bg='#303030', highlightbackground='black',
+                                           highlightthickness=2)
+        repair_db_frame.place(x=270, y=50)
+        repair_db_button = ttk.Button(repair_db_frame, text='Repair DB Entries!', command=self.repair_db_popup)
+        repair_db_button.place(x=10, y=10)
+        Label(repair_db_frame, text='Restart Punge for this to take affect !').place(x=0, y=40)
         clean_folder_frame = tk.Frame(self, width=200, height=150, bg='#303030', highlightbackground='black',
                                            highlightthickness=2)
         clean_folder_frame.place(x=475, y=50)
@@ -968,6 +974,34 @@ class Settings(tk.Frame):
                                         text='This will delete every file in your punge folders that '
                                                                  'isnt listed in the database!', wraplength=200)
         self.clean_folder_label.place(x=0, y=40)
+
+
+    def repair_db_popup(self):
+        popup_win = Toplevel(self)
+        popup_win.geometry('250x250')
+        popup_win.title("Fix it !")
+        popup_win.configure(background="#272c34")
+        new_prefix = tk.StringVar()
+        mp3_dir = tk.StringVar()
+        jpg_dir = tk.StringVar()
+        Label(popup_win, text="Enter the new path to the parent directory:").pack()
+        ttk.Entry(popup_win, textvariable=new_prefix).pack()
+        Label(popup_win, text="Enter Music File Directory name:").pack()
+        ttk.Entry(popup_win, textvariable=mp3_dir).pack()
+        Label(popup_win, text="Enter Thumbnail Directory name:").pack()
+        ttk.Entry(popup_win, textvariable=jpg_dir).pack()
+        ttk.Button(popup_win, text='Fix! (might take a minute)', command=lambda:
+        run_and_delete(new_prefix.get(), mp3_dir.get(), jpg_dir.get())).pack()
+
+
+        # yes this is meant to exist under the popup function
+        def run_and_delete(pref, mp3, jpg):
+            thr = threading.Thread(target=lambda:
+            dc.replace_all_saveloc_prefix(pref, mp3, jpg))
+            thr.start()
+            thr.join()
+            popup_win.destroy()
+            popup_win.update()
 
     def clean_confirm(self):
         is_sure = tk.messagebox.askokcancel('Are you sure?', "This will delete all files in your Punge download folder"
@@ -1417,7 +1451,7 @@ class active_playlist(tk.Frame):
         everyones_music.query_list()
         print("CALLED BY play_playlist")
         everyones_music.play()
-        self.new_frame()
+        # self.new_frame() unsure purpose
 
     def play_specifically(self):
         for y in self.playlist_table.selection():
