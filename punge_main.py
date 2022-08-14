@@ -934,9 +934,7 @@ class Settings(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
         self.configure(bg="#272c34")
-        Label(self, text="THIS IS Settings location :D").pack()
         button_main = Button(self, text="Main page", command=lambda: controller.show_frame(Main_page))
-
         button_download = Button(self, text="Download", command=lambda: controller.show_frame(Download))
         button_settings = Button(self, text="Settings", state=DISABLED)
         button_mp4 = Button(self, text="Video downloader", command=lambda: controller.show_frame(mp4_downloader))
@@ -944,22 +942,32 @@ class Settings(tk.Frame):
         button_download.place(x=0, y=150)
         button_settings.place(x=0, y=175)
         button_mp4.place(x=0, y=200)
-        self.json_button = tk.Button(self, text='add to json', command=self.add_entry)
-        self.json_button.place(x=500, y=200)
+        clean_folder_frame = tk.Frame(self, width=200, height=150, bg='#303030', highlightbackground='black',
+                                           highlightthickness=2)
+        clean_folder_frame.place(x=475, y=50)
+        download_location_label = tk.Label(self, text='Add file locations for YouTube video download tab')
+        download_location_label.place(x=700, y=30)
+        download_location_frame = tk.Frame(self, width=350, height=150, bg='#303030', highlightbackground='black',
+                                           highlightthickness=2)
+        download_location_frame.place(x=700, y=50)
+        self.json_button = tk.Button(download_location_frame, text='Add to Download locations', command=self.add_entry)
+        self.json_button.place(x=5, y=5)
         self.path = "./Cache/downloadlocation.json"
         self.new_path = tk.StringVar()
-        self.json_entry = tk.Entry(self, textvariable=self.new_path)
-        self.json_entry.place(x=500, y=225)
-        self.view_json = tk.Button(self, text='view json', command=self.read_entries)
-        self.view_json.place(x=500, y=250)
+        self.json_entry = tk.Entry(download_location_frame, textvariable=self.new_path)
+        self.json_entry.place(x=5, y=35)
         self.curJson = self.read_entries()
-        self.delete_combobox = ttk.Combobox(self, width=25, values=self.curJson)
+        self.delete_combobox = ttk.Combobox(download_location_frame, width=25, values=self.curJson)
         self.delete_combobox.set(self.curJson[0])
-        self.delete_combobox.place(x=700, y=225)
-        self.delete_button = ttk.Button(self, text='Delete!', command=self.delete_from_combobox)
-        self.delete_button.place(x=700, y=250)
-        self.clean_button = ttk.Button(self, text='Clean Folders', command=self.clean_confirm)
-        self.clean_button.place(x=750, y=15)
+        self.delete_combobox.place(x=175, y=5)
+        self.delete_button = ttk.Button(download_location_frame, text='Delete!', command=self.delete_from_combobox)
+        self.delete_button.place(x=175, y=35)
+        self.clean_button = ttk.Button(clean_folder_frame, text='Clean Folders', command=self.clean_confirm)
+        self.clean_button.place(x=10, y=10)
+        self.clean_folder_label = Label(clean_folder_frame,
+                                        text='This will delete every file in your punge folders that '
+                                                                 'isnt listed in the database!', wraplength=200)
+        self.clean_folder_label.place(x=0, y=40)
 
     def clean_confirm(self):
         is_sure = tk.messagebox.askokcancel('Are you sure?', "This will delete all files in your Punge download folder"
@@ -1224,13 +1232,13 @@ class mp4_downloader(tk.Frame):
         button_settings = Button(self, text="Settings", command=lambda: controller.show_frame(Settings))
         button_mp4 = Button(self, text="Video downloader", state=DISABLED)
         button_main.place(x=0, y=125)
-        button_download.place(x=0, y=175)
-        button_settings.place(x=0,y=200)
-        button_mp4.place(x=0, y=225)
+        button_download.place(x=0, y=150)
+        button_settings.place(x=0, y=175)
+        button_mp4.place(x=0, y=200)
         self.yt_link_stringvar = StringVar()
-        self.YOUTUBEBOX = ttk.Entry(self, textvariable=self.yt_link_stringvar)
-        self.YOUTUBEBOX.place(rely=.40, relx=.5, anchor=CENTER, width=250)
-        self.YOUTUBEBOX.bind("<Return>", self.yt_link_get_thread)
+        self.youtubebox = ttk.Entry(self, textvariable=self.yt_link_stringvar)
+        self.youtubebox.place(rely=.40, relx=.5, anchor=CENTER, width=250)
+        self.youtubebox.bind("<Return>", self.yt_link_get_thread)
         self.download_button = ttk.Button(self, text="Get!", command=self.yt_link_get_thread)
         self.download_button.place(rely=.45, relx=.5, anchor=CENTER)
         self.mp3_vs_mp4_list = [".MP4", ".MP3", ".MP4"]
@@ -1318,14 +1326,14 @@ class mp4_downloader(tk.Frame):
 
 
     def clear_youtubebox(self):
-        self.YOUTUBEBOX.delete(0, 'end')
+        self.youtubebox.delete(0, 'end')
 
 
 
     def yt_link_get(self, *event):
         ytlink = self.yt_link_stringvar.get()
         self.download_differ(ytlink)
-        self.YOUTUBEBOX.delete(0, 'end')
+        self.youtubebox.delete(0, 'end')
 
     def on_page_swap(self, event):
         with open("./Cache/downloadlocation.json", 'r') as file:
@@ -1393,9 +1401,9 @@ class active_playlist(tk.Frame):
         playlist_scroll.config(command=self.playlist_table.yview)  # ability to scroll down
         self.playlist_table['columns'] = ('Artist', 'Song', 'Album')
         self.playlist_table.column("#0", width=0, stretch=NO)
-        self.playlist_table.column('Artist', anchor=CENTER, width=250, stretch=NO)
-        self.playlist_table.column('Song', anchor=CENTER, width=250, stretch=NO)
-        self.playlist_table.column('Album', anchor=CENTER, width=200, stretch=NO)
+        self.playlist_table.column('Artist', anchor=CENTER, width=300, stretch=NO)
+        self.playlist_table.column('Song', anchor=CENTER, width=300, stretch=NO)
+        self.playlist_table.column('Album', anchor=CENTER, width=300, stretch=NO)
         self.playlist_table.heading("#0", text='', anchor=CENTER)
         self.playlist_table.heading('Artist', text="Artist", anchor=CENTER)
         self.playlist_table.heading('Song', text="Song", anchor=CENTER)
