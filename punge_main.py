@@ -187,8 +187,13 @@ class tkinter_main(tk.Tk):
         everyones_music.flicker.set()
 
     def global_keybind_play(self, event=None):
-        everyones_music.pause_play_toggle()
-        self.update_play_pause()
+        try:
+            everyones_music.pause_play_toggle()
+        # used to catch the playback error when no song has been played yet
+        except AttributeError:
+            everyones_music.play()
+        finally:
+            self.update_play_pause()
 
     def shuffle_update_bundle(self, event=None):
         if everyones_music.shuffle is True:
@@ -202,7 +207,10 @@ class tkinter_main(tk.Tk):
 
     # TODO perhaps update to contain the first if & elif into one if, and move the logic of 'is not playing yadda yadda'
     # TODO into the music class.
+
+
     def update_play_pause(self):
+        print(f'ran update!! {everyones_music.thr.is_alive()} :: {everyones_music.pause_bool}')
         if not everyones_music.thr.is_alive() and not everyones_music.pause_bool:
             self.bottom_frame_play.configure(image=self.play_img, command=self.play_with_cooldown)
         elif everyones_music.pause_bool is True:
@@ -586,6 +594,7 @@ class music_player:
             self.song_begin = time.time()
             self.thr.start()
         self.kthread_check_thr()
+        print("######## right spot")
 
 
 
@@ -942,6 +951,12 @@ class Settings(tk.Frame):
         button_download.place(x=0, y=150)
         button_settings.place(x=0, y=175)
         button_mp4.place(x=0, y=200)
+        repair_db_frame = tk.Frame(self, width=200, height=150, bg='#303030', highlightbackground='black',
+                                           highlightthickness=2)
+        repair_db_frame.place(x=270, y=50)
+        repair_db_button = ttk.Button(repair_db_frame, text='Repair DB Entries!', command=self.repair_db_popup)
+        repair_db_button.place(x=10, y=10)
+        Label(repair_db_frame, text='Restart Punge for this to take affect !').place(x=0, y=40)
         clean_folder_frame = tk.Frame(self, width=200, height=150, bg='#303030', highlightbackground='black',
                                            highlightthickness=2)
         clean_folder_frame.place(x=475, y=50)
@@ -968,6 +983,34 @@ class Settings(tk.Frame):
                                         text='This will delete every file in your punge folders that '
                                                                  'isnt listed in the database!', wraplength=200)
         self.clean_folder_label.place(x=0, y=40)
+
+
+    def repair_db_popup(self):
+        popup_win = Toplevel(self)
+        popup_win.geometry('250x250')
+        popup_win.title("Fix it !")
+        popup_win.configure(background="#272c34")
+        new_prefix = tk.StringVar()
+        mp3_dir = tk.StringVar()
+        jpg_dir = tk.StringVar()
+        Label(popup_win, text="Enter the new path to the parent directory:").pack()
+        ttk.Entry(popup_win, textvariable=new_prefix).pack()
+        Label(popup_win, text="Enter Music File Directory name:").pack()
+        ttk.Entry(popup_win, textvariable=mp3_dir).pack()
+        Label(popup_win, text="Enter Thumbnail Directory name:").pack()
+        ttk.Entry(popup_win, textvariable=jpg_dir).pack()
+        ttk.Button(popup_win, text='Fix! (might take a minute)', command=lambda:
+        run_and_delete(new_prefix.get(), mp3_dir.get(), jpg_dir.get())).pack()
+
+
+        # yes this is meant to exist under the popup function
+        def run_and_delete(pref, mp3, jpg):
+            thr = threading.Thread(target=lambda:
+            dc.replace_all_saveloc_prefix(pref, mp3, jpg))
+            thr.start()
+            thr.join()
+            popup_win.destroy()
+            popup_win.update()
 
     def clean_confirm(self):
         is_sure = tk.messagebox.askokcancel('Are you sure?', "This will delete all files in your Punge download folder"
@@ -1417,9 +1460,14 @@ class active_playlist(tk.Frame):
         everyones_music.query_list()
         print("CALLED BY play_playlist")
         everyones_music.play()
-        self.new_frame()
+        # self.new_frame() unsure purpose
 
     def play_specifically(self):
+        try:
+            everyones_music.stop()
+            # on startup, ^ gets ignored
+        except AttributeError:
+            pass
         for y in self.playlist_table.selection():
             chosen_song = self.playlist_table.item(y, 'values')
             print(f'chosen_song = {chosen_song}')
@@ -1434,7 +1482,12 @@ class active_playlist(tk.Frame):
                 if entry.Uniqueid == chosen_song[5]:
                     new_song = everyones_music.current_playlist.index(entry)
                     everyones_music.song_count = new_song
+            self.controller.update_play_pause()
             everyones_music.play()
+            self.controller.update_play_pause()
+            # Force_pause needed as a bit of a bandaid for .play() ^ not updating the attributes that self.controller.
+            # update_play_pause relies on. Only time this is called
+            # self.controller.force_pause()
 
 
 
