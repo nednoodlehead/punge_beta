@@ -213,7 +213,7 @@ class tkinter_main(tk.Tk):
         print(f'ran update!! {everyones_music.thr.is_alive()} :: {everyones_music.pause_bool}')
         if not everyones_music.thr.is_alive() and not everyones_music.pause_bool:
             self.bottom_frame_play.configure(image=self.play_img, command=self.play_with_cooldown)
-        elif everyones_music.pause_bool is True:
+        elif everyones_music.is_playing is False:  # was: pause_bool is True
             self.bottom_frame_play.configure(image=self.play_img, command=self.resume_pause_toggle)
         else:
             print(f'thr_isalive {everyones_music.thr.is_alive()} pausebool: {everyones_music.pause_bool}')
@@ -703,6 +703,7 @@ class music_player:
         print("***JSON DEBUG***")
         print(self.controller.shared_data)
         print("-----DEBUG----")
+        print(f'update play_pause with: {everyones_music.thr.is_alive()} & {everyones_music.pause_bool}')
 
         print(f"self.song: {self.song}")
         print(f"self.pause_time: {self.pause_time}")
@@ -1482,6 +1483,8 @@ class active_playlist(tk.Frame):
                 if entry.Uniqueid == chosen_song[5]:
                     new_song = everyones_music.current_playlist.index(entry)
                     everyones_music.song_count = new_song
+            print(f'update play_pause with: {everyones_music.thr.is_alive()} & {everyones_music.pause_bool}')
+            print('false & false = play_image')
             self.controller.update_play_pause()
             everyones_music.play()
             self.controller.update_play_pause()
