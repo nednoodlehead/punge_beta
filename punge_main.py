@@ -211,12 +211,15 @@ class tkinter_main(tk.Tk):
 
     def update_play_pause(self):
         print(f'ran update!! {everyones_music.thr.is_alive()} :: {everyones_music.pause_bool}')
+        # False & False:
         if not everyones_music.thr.is_alive() and not everyones_music.pause_bool:
+            print('update IF')
             self.bottom_frame_play.configure(image=self.play_img, command=self.play_with_cooldown)
-        elif everyones_music.is_playing is False:  # was: pause_bool is True
+        elif everyones_music.pause_bool is True:  # was: pause_bool is True
+            print('update ELIF')
             self.bottom_frame_play.configure(image=self.play_img, command=self.resume_pause_toggle)
         else:
-            print(f'thr_isalive {everyones_music.thr.is_alive()} pausebool: {everyones_music.pause_bool}')
+            print('update: ELSE')
             self.bottom_frame_play.configure(image=self.pause_img, command=self.resume_pause_toggle)
 
     def skip_forward_update_play(self, event=None):
@@ -623,7 +626,11 @@ class music_player:
         function, we define both of those (New definitions ((loop based)) are created after the self.playback is called)
         """
         if called_with == None:
-            self.set_shared_data()
+            try:
+                self.set_shared_data()
+            except IndexError:
+                self.song_count = 0
+                self.set_shared_data()
             self.controller.music_obj = self.current_playlist[self.song_count]
             self.controller.send_update_labels()
             self.song = AudioSegment.from_file(self.controller.music_obj.Savelocation)
@@ -723,8 +730,9 @@ class music_player:
         print(f"self.pause_bool: {self.pause_bool}")
         print(f"self.: {self.controller.music_obj}")
         print(f'is thread active?: {self.thr.is_alive()}')
-        print(f'is playing: {self.is_playing}')
+        print(f'pause_bool:: {self.pause_bool}')
         print("-----DEBUG----")
+        self.controller.update_play_pause()
 
     def update_frame_labels(self, song_object):
         self.controller.music_obj = song_object
@@ -820,6 +828,7 @@ class music_player:
                 self.resume_list.clear()
                 self.play()
                 self.pause_bool = False
+        self.controller.update_play_pause()
 
 
     def add_times(self):
@@ -905,7 +914,7 @@ class music_player:
                     self.song_count = x + 1  # bruh. all i got to say
                 # +1 required because when index is got, it will get the index of the active, playing song. we want it
                 # to play the next song up.
-                print(f'end of reasemble  song_count {self.current_playlist[self.song_count].Title}')
+                #print(f'end of reasemble  song_count {self.current_playlist[self.song_count].Title}')
 
 
 
@@ -1485,6 +1494,7 @@ class active_playlist(tk.Frame):
                     everyones_music.song_count = new_song
             print(f'update play_pause with: {everyones_music.thr.is_alive()} & {everyones_music.pause_bool}')
             print('false & false = play_image')
+            everyones_music.pause_bool = False
             self.controller.update_play_pause()
             everyones_music.play()
             self.controller.update_play_pause()
