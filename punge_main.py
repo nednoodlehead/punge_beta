@@ -187,8 +187,13 @@ class tkinter_main(tk.Tk):
         everyones_music.flicker.set()
 
     def global_keybind_play(self, event=None):
-        everyones_music.pause_play_toggle()
-        self.update_play_pause()
+        try:
+            everyones_music.pause_play_toggle()
+        # used to catch the playback error when no song has been played yet
+        except AttributeError:
+            everyones_music.play()
+        finally:
+            self.update_play_pause()
 
     def shuffle_update_bundle(self, event=None):
         if everyones_music.shuffle is True:
@@ -202,7 +207,10 @@ class tkinter_main(tk.Tk):
 
     # TODO perhaps update to contain the first if & elif into one if, and move the logic of 'is not playing yadda yadda'
     # TODO into the music class.
+
+
     def update_play_pause(self):
+        print(f'ran update!! {everyones_music.thr.is_alive()} :: {everyones_music.pause_bool}')
         if not everyones_music.thr.is_alive() and not everyones_music.pause_bool:
             self.bottom_frame_play.configure(image=self.play_img, command=self.play_with_cooldown)
         elif everyones_music.pause_bool is True:
@@ -586,6 +594,7 @@ class music_player:
             self.song_begin = time.time()
             self.thr.start()
         self.kthread_check_thr()
+        print("######## right spot")
 
 
 
@@ -1454,6 +1463,11 @@ class active_playlist(tk.Frame):
         # self.new_frame() unsure purpose
 
     def play_specifically(self):
+        try:
+            everyones_music.stop()
+            # on startup, ^ gets ignored
+        except AttributeError:
+            pass
         for y in self.playlist_table.selection():
             chosen_song = self.playlist_table.item(y, 'values')
             print(f'chosen_song = {chosen_song}')
@@ -1468,7 +1482,12 @@ class active_playlist(tk.Frame):
                 if entry.Uniqueid == chosen_song[5]:
                     new_song = everyones_music.current_playlist.index(entry)
                     everyones_music.song_count = new_song
+            self.controller.update_play_pause()
             everyones_music.play()
+            self.controller.update_play_pause()
+            # Force_pause needed as a bit of a bandaid for .play() ^ not updating the attributes that self.controller.
+            # update_play_pause relies on. Only time this is called
+            # self.controller.force_pause()
 
 
 
