@@ -979,9 +979,12 @@ class Settings(tk.Frame):
         self.json_button.place(x=5, y=5)
         self.path = "./Cache/downloadlocation.json"
         self.new_path = tk.StringVar()
+        # This whole self.curjson vs writejson should and will be cleaned up post release sort of a mess with no proper
+        # standardization for values... fix another time ! (post 1.0)
         self.json_entry = tk.Entry(download_location_frame, textvariable=self.new_path)
         self.json_entry.place(x=5, y=35)
-        self.curJson = self.read_entries()
+        self.writejson = self.read_entries()
+        self.curJson = self.read_entries()['mp4_downloads']
         self.delete_combobox = ttk.Combobox(download_location_frame, width=25, values=self.curJson)
         self.delete_combobox.set(self.curJson[0])
         self.delete_combobox.place(x=175, y=5)
@@ -1032,8 +1035,6 @@ class Settings(tk.Frame):
     def read_entries(self):
         with open(self.path, 'r') as file:
             x = json.load(file)
-            print(x)
-            self.curJson = x
             return x
 
 
@@ -1045,10 +1046,10 @@ class Settings(tk.Frame):
         else:
             x = add_to_json.replace('\\', '/')
             print('path do exist')
-            old_entries = self.read_entries()
+            print(f'writejson: {self.writejson}. mp4downnd: {self.writejson["mp4_downloads"]}')
             with open(self.path, 'w') as file:
-                old_entries.append(x)
-                json.dump(old_entries, file)
+                self.writejson['mp4_downloads'].append(x)
+                json.dump(self.writejson, file)
             self.json_entry.delete(0, 'end')
             self.combo_update()
 
@@ -1060,17 +1061,16 @@ class Settings(tk.Frame):
     def delete_from_combobox(self):
         delete = self.delete_combobox.get()
         with open(self.path, 'r') as file:
-            myjson = json.load(file)
-            print(myjson)
+            myjson = json.load(file)['mp4_downloads']
             for entry in myjson:
-                print(f'entry!')
                 if entry == delete:
                     myjson.remove(entry)
             print(f'newjson!!: {myjson}')
-            self.curJson = myjson
+            self.writejson['mp4_downloads'] = myjson
+            self.curJson = self.writejson['mp4_downloads']
             self.combo_update()
         with open(self.path, 'w') as file_2:
-            json.dump(myjson, file_2)
+            json.dump(self.writejson, file_2)
 
 
 
@@ -1299,7 +1299,8 @@ class mp4_downloader(tk.Frame):
         self.mp4_mp3_differ_box = ttk.OptionMenu(self, self.mp3_vs_mp4, *self.mp3_vs_mp4_list)
         self.mp4_mp3_differ_box.place(x=770, y=287)
         with open("./Cache/downloadlocation.json") as file:
-            self.desire_path_values = json.load(file)
+            new = json.load(file)
+            self.desire_path_values = new["mp4_downloads"]
         self.desire_path = ttk.Combobox(self, width=50, values=self.desire_path_values)
         self.desire_path.set(self.desire_path_values[0])  # Should be settable by user ?
         self.desire_path.place(relx=.5, rely=.5, anchor=CENTER)
@@ -1391,7 +1392,7 @@ class mp4_downloader(tk.Frame):
     def on_page_swap(self, event):
         with open("./Cache/downloadlocation.json", 'r') as file:
             new_json = json.load(file)
-            self.desire_path.configure(values=new_json)
+            self.desire_path.configure(values=new_json["mp4_downloads"])
             self.desire_path.set(new_json[0])
 
 
@@ -1498,7 +1499,7 @@ class active_playlist(tk.Frame):
             self.controller.update_play_pause()
             everyones_music.play()
             self.controller.update_play_pause()
-            # Force_pause needed as a bit of a bandaid for .play() ^ not updating the attributes that self.controller.
+            # Force_pause needed as a bit of a bandaid for .play() ^ not updating the attributes that self.controller.t
             # update_play_pause relies on. Only time this is called
             # self.controller.force_pause()
 
