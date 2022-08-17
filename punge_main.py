@@ -95,12 +95,12 @@ class tkinter_main(tk.Tk):
         self.bind("<Alt_L>F4", self.proper_close)
         self.bind("<Alt_R>F4", self.proper_close)
         # init images used for buttons!
-        self.right_arrow_img = tk.PhotoImage(file="F:/Projects/Python Projects/punge/img/punge_right_new.png")
-        self.left_arrow_img = tk.PhotoImage(file="F:/Projects/Python Projects/punge/img/punge_left_new.png")
-        self.shuffle_on_img = tk.PhotoImage(file="F:/Adobe/Punge WIP/To use/shuffle_on_new.png")
-        self.shuffle_off_img = tk.PhotoImage(file="F:/Adobe/Punge WIP/To use/shuffle_off_new.png")
-        self.play_img = tk.PhotoImage(file="F:/Projects/Python Projects/punge/img/punge_play_new.png")
-        self.pause_img = tk.PhotoImage(file="F:/Projects/Python Projects/punge/img/punge_pause_new.png")
+        self.right_arrow_img = tk.PhotoImage(file="./img/punge_right_new.png")
+        self.left_arrow_img = tk.PhotoImage(file="./img/punge_left_new.png")
+        self.shuffle_on_img = tk.PhotoImage(file="./img/shuffle_on_new.png")
+        self.shuffle_off_img = tk.PhotoImage(file="./img/shuffle_off_new.png")
+        self.play_img = tk.PhotoImage(file="./img/punge_play_new.png")
+        self.pause_img = tk.PhotoImage(file="./img/punge_pause_new.png")
 
 
         main_page_frame = tk.Frame(self)
@@ -191,8 +191,10 @@ class tkinter_main(tk.Tk):
             everyones_music.pause_play_toggle()
         # used to catch the playback error when no song has been played yet
         except AttributeError:
+            print('att error!')
             everyones_music.play()
         finally:
+            print('hhit finally??')
             self.update_play_pause()
 
     def shuffle_update_bundle(self, event=None):
@@ -584,6 +586,7 @@ class music_player:
             time.sleep(.5)
             #everyones_music.reset_class_defaults()
             print("THRD!")
+            self.pause_bool = False
             self.is_playing = True
             self.exited.clear()
             self.thr = KThread(target=self.testsong)
@@ -591,6 +594,7 @@ class music_player:
             self.thr.start()
         else:
             print("THRD!")
+            self.pause_bool = False
             self.is_playing = True
             self.exited.clear()
             self.thr = KThread(target=self.testsong)
@@ -1090,10 +1094,11 @@ class Download(tk.Frame):
         Label(self, text='To download music for Punge, go over to youtube, and copy a link of a song, paste it into '
                          'the top box. Press enter or click download to download it. The song will show up in \'main\''
                          'playlist', wraplength=500).pack()
+        self.update_saveloc()
 
         # -----Listism-----#
-        elite_fileloc = "F:/Punge Downloads/Downloads/"  # These will be detirmined by user eventualy
-        elite_fileloc_thumbnail = "F:/Punge Downloads/thumbnails/"
+        self.elite_fileloc = "default_save_mp4"  # These will be detirmined by user eventualy
+        self.elite_fileloc_thumbnail = "default_save_jpg"
         auto_album_recognize = "Provided"
         forbidden_character = "<>:\"/\|?*"
         ytlink_strvar = tk.StringVar()
@@ -1124,7 +1129,7 @@ class Download(tk.Frame):
             if os.path.exists(download_path_ext) is True:
                 print("File already downloaded. Try something new.")
             else:
-                bruh = video1.download(output_path=elite_fileloc)
+                bruh = video1.download(output_path=self.elite_fileloc)
                 os.rename(bruh, download_path_ext)
                 urllib.request.urlretrieve(video_main.thumbnail_url,
                                            file_extension_change_jpg(video_main.author, video_main.title, video_main.video_id))
@@ -1143,7 +1148,7 @@ class Download(tk.Frame):
                 if os.path.exists(downloadname) is True:
                     print("File already downloaded(playlist). Try something new.")
                 else:
-                    bruh = video_sep2.download(output_path=elite_fileloc)
+                    bruh = video_sep2.download(output_path=self.elite_fileloc)
                     try:
                         os.rename(bruh, downloadname) #changed to include video_id for times when the title and author are identical
                     except FileExistsError:
@@ -1168,7 +1173,7 @@ class Download(tk.Frame):
             pt1 = (difference_author_title(vid_auth, vid_titl)[1] + " - " +
                    difference_author_title(vid_auth, vid_titl)[0])
             pt1_fixed1 = character_replacer(pt1)
-            pt1_fixed2 = elite_fileloc + pt1_fixed1 + vid_id + ".mp3"
+            pt1_fixed2 = self.elite_fileloc + pt1_fixed1 + vid_id + ".mp3"
             return pt1_fixed2
 
         def add_to_db(vid_auth, vid_titl, vid_id, vid_desc):
@@ -1226,7 +1231,7 @@ class Download(tk.Frame):
             change_mp3_author_fixed = character_replacer_vevo(change_mp3_author)
             change_mp3_title_fixed = character_replacer(change_mp3_title)
             mainpart = change_mp3_author_fixed + " - " + change_mp3_title_fixed
-            export_file_mp3 = elite_fileloc + mainpart + vid_id + ".mp3"
+            export_file_mp3 = self.elite_fileloc + mainpart + vid_id + ".mp3"
             print(export_file_mp3)
             return export_file_mp3
 
@@ -1234,7 +1239,7 @@ class Download(tk.Frame):
             mainpart = (difference_author_title(vid_auth, vid_titl)[1] + " - " +
                         difference_author_title(vid_auth, vid_titl)[0])
             mainpart_fixed = character_replacer(mainpart)
-            export_file_jpg = elite_fileloc_thumbnail + mainpart_fixed + vid_id + ".jpg"
+            export_file_jpg = self.elite_fileloc_thumbnail + mainpart_fixed + vid_id + ".jpg"
             return export_file_jpg
 
 
@@ -1274,6 +1279,14 @@ class Download(tk.Frame):
         def funny_check(self, event):
             print("Ive tried my best")
         #self.yt_link_entry.bind("<Return>", self.bind(funny_check))
+    def update_saveloc(self):
+        with open("Cache/downloadlocation.json") as file:
+            x = json.load(file)
+            savelocs = x['punge_downloads']
+            # mp3, jpg
+            self.elite_fileloc = savelocs[0]
+            self.elite_fileloc_thumbnail = savelocs[1]
+
 
 class mp4_downloader(tk.Frame):
     def __init__(self, parent, controller):
