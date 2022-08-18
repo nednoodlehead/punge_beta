@@ -1027,6 +1027,7 @@ class Settings(tk.Frame):
             self.punge_mp3s.insert(0, y[1])
             self.punge_jpgs.insert(0, y[0])
 
+
     def update_punge_savelocations(self):
         new_mp3 = self.punge_mp3s.get()
         new_jpg = self.punge_jpgs.get()
