@@ -965,6 +965,23 @@ class Settings(tk.Frame):
         button_download.place(x=0, y=150)
         button_settings.place(x=0, y=175)
         button_mp4.place(x=0, y=200)
+        punge_saveloc_frame = tk.Frame(self, width=405, height=150, bg='#303030', highlightbackground='black',
+                                           highlightthickness=2)
+        Label(punge_saveloc_frame, text='mp3s', background="#303030", foreground='white').place(x=315, y=50)
+        Label(punge_saveloc_frame, text='jpgs', background="#303030", foreground='white').place(x=315, y=75)
+
+        Label(punge_saveloc_frame, text='This is where your punge thumbnails / music will download').place(x=0, y=5)
+        Label(punge_saveloc_frame, text='Would not recommend changing this unless you just downloaded Punge')\
+            .place(x=0, y=30)
+        self.punge_mp3s = ttk.Entry(punge_saveloc_frame, width=50)
+        self.punge_mp3s.place(x=0, y=50)
+        self.punge_jpgs = ttk.Entry(punge_saveloc_frame, width=50)
+        self.punge_jpgs.place(x=0, y=75)
+        punge_saveloc_frame.place(x=270, y=260)
+        change_saveloc_button = tk.Button(punge_saveloc_frame, text='Update!', command=self.update_punge_savelocations)
+        change_saveloc_button.place(x=0, y=100)
+        Label(punge_saveloc_frame, text='(Remember to add a \'/\' to the end!)',
+                                    background="#303030", foreground='white').place(x=55, y=100)
         repair_db_frame = tk.Frame(self, width=200, height=150, bg='#303030', highlightbackground='black',
                                            highlightthickness=2)
         repair_db_frame.place(x=270, y=50)
@@ -1000,7 +1017,29 @@ class Settings(tk.Frame):
                                         text='This will delete every file in your punge folders that '
                                                                  'isnt listed in the database!', wraplength=200)
         self.clean_folder_label.place(x=0, y=40)
+        self.populate_punge_savelocs()
+    def populate_punge_savelocs(self):
+        with open('./Cache/downloadlocation.json') as file:
+            x = json.load(file)
+            y = x['punge_downloads']
+            self.punge_jpgs.delete(0, tk.END)
+            self.punge_mp3s.delete(0, tk.END)
+            self.punge_mp3s.insert(0, y[1])
+            self.punge_jpgs.insert(0, y[0])
 
+    def update_punge_savelocations(self):
+        new_mp3 = self.punge_mp3s.get()
+        new_jpg = self.punge_jpgs.get()
+        are_sure = tk.messagebox.askokcancel(title="Are you a hunnit?", message='Dont go ahead if u dont know what youre'
+                                                                               ' doing. This will break connectivity for'
+                                                                               'Punge otherwise.')
+        if are_sure is True:
+            with open('./Cache/downloadlocation.json', 'r') as file:
+                old = json.load(file)
+                old['punge_downloads'] = [new_mp3, new_jpg]
+            with open('./Cache/downloadlocation.json', 'w') as file_2:
+                json.dump(old, file_2)
+            self.populate_punge_savelocs()
 
     def repair_db_popup(self):
         popup_win = Toplevel(self)
@@ -1094,16 +1133,20 @@ class Download(tk.Frame):
         Label(self, text='To download music for Punge, go over to youtube, and copy a link of a song, paste it into '
                          'the top box. Press enter or click download to download it. The song will show up in \'main\''
                          'playlist', wraplength=500).pack()
-        self.update_saveloc()
+        Button(self, text='FILELOCATION!', command=self.show_saveloc).place(x=20, y=30)
+        Button(self, text='update saveloc', command=self.update_saveloc).place(x=20, y=70)
 
         # -----Listism-----#
         self.elite_fileloc = "default_save_mp4"  # These will be detirmined by user eventualy
         self.elite_fileloc_thumbnail = "default_save_jpg"
+        self.update_saveloc()
         auto_album_recognize = "Provided"
         forbidden_character = "<>:\"/\|?*"
         ytlink_strvar = tk.StringVar()
         # -----Functions-N-Stuff-----#
         #ytlink_inputbox = Entry(self, bg=)
+
+
         def ytlink_box_get_thread(*event):
             thread1 = threading.Thread(target=ytlink_box_get, args=("*event"))
             thread1.start()
@@ -1284,8 +1327,16 @@ class Download(tk.Frame):
             x = json.load(file)
             savelocs = x['punge_downloads']
             # mp3, jpg
-            self.elite_fileloc = savelocs[0]
-            self.elite_fileloc_thumbnail = savelocs[1]
+            self.elite_fileloc = savelocs[1]
+            self.elite_fileloc_thumbnail = savelocs[0]
+        print("SET SAVE LOC!")
+        print(self.elite_fileloc)
+        print(self.elite_fileloc_thumbnail)
+
+    def show_saveloc(self):
+        print(f'loc: {self.elite_fileloc}')
+        print(f'loc: {self.elite_fileloc_thumbnail}')
+
 
 
 class mp4_downloader(tk.Frame):
@@ -1406,7 +1457,7 @@ class mp4_downloader(tk.Frame):
         with open("./Cache/downloadlocation.json", 'r') as file:
             new_json = json.load(file)
             self.desire_path.configure(values=new_json["mp4_downloads"])
-            self.desire_path.set(new_json[0])
+            self.desire_path.set(new_json['mp4_downloads'][0])
 
 
 
