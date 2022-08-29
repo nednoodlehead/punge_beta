@@ -23,9 +23,10 @@ from pycaw.pycaw import AudioUtilities
 import sys
 from system_hotkey import SystemHotkey
 import json
+# import data_clean as dc # depreciated, old
+# also this name will be changed eventually
+import rust as dc
 global_hotkey = SystemHotkey()
-import data_clean as dc
-
 
 # A kill()-able thread. Needed for the music. i forget source of this :(. will add later !
 class KThread(threading.Thread):
@@ -493,22 +494,34 @@ class music_player:
     def app_launch_setup(self):
         with open("./Cache/playlist.json") as file:
             x = json.load(file)
-            print(x)
+            print('1')
             # Sets the shared_data dict = to the json file
             self.controller.shared_data = x
             print(f'app_lauch sets controller.shared_data= {x}')
             print(f'self.shuffle: {x["shuffle"]} ')
             self.shuffle = x['shuffle']
+            print('2')
             self.flicker.wait()
+            print('3')
             # Queries the self.current_playlist, takes into account the status of self.shuffle
             self.query_list()
+            print('4')
             songid = x['songid']
+            print('5')
+            pydub.AudioSegment.converter = "./ffmpeg/bin/ffmpeg"
+            pydub.AudioSegment.ffprobe = "./ffmpeg/bin/ffprobe"
             # TODO FLICKER
             for count, entry in enumerate(self.current_playlist):
                 if entry.Uniqueid == songid:
+                    print(f'found unqiue: {entry.Uniqueid}')
                     self.song_count = count
+                    print('cpunt done')
                     self.update_frame_labels(self.current_playlist[self.song_count])
+                    print('update labels!')
+                    print(self.current_playlist[self.song_count].Savelocation)
+                    print(pydub.AudioSegment.from_file(self.current_playlist[self.song_count].Savelocation))
                     self.song = AudioSegment.from_file(self.current_playlist[self.song_count].Savelocation)
+                    print('passed self.song')
                     print(f'song_con: {self.song_count} . song_obj: {self.controller.music_obj} song: {self.song}')
             print("app_launched!!!")
 
@@ -841,8 +854,6 @@ class music_player:
             to_return += item
         return to_return
 
-    # TODO a fix for the spam-clicking of play/pause, is when resume here is called, it sets a .controller flag so that
-    # TODO it cannot be re-called until resume has finished executing
     def resume(self):
         print("##RESUME##")
         self.exited.clear()
