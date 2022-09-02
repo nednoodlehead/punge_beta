@@ -472,7 +472,7 @@ class music_player:
     # Value is true, then it should, because it is a new song being played
     coming_from_loop = True
     # Is the music current paused? used mostly for skipping songs, to see if the music needs to be stopped()
-    pause_bool = False
+    pause_bool = True
     # is the music playing. somehow differnt that pause_bool
     is_playing = False
     # Will hold the current music object being played. Will be used for shuffle recontruction (shuffle off -> on ->
@@ -910,8 +910,14 @@ class music_player:
 
 
     def reassemble_list(self):
-        # Grabs the id of current song to begin at.
-        cur_id = self.controller.music_obj.Title
+        if everyones_music.pause_bool is True:
+            cur_id = everyones_music.current_playlist[everyones_music.song_count - 1].Title
+            print(f'bool=true: {cur_id}')
+        else:
+            # Grabs the id of current song to begin at.
+            cur_id = self.controller.music_obj.Title
+            print(f'bool=false: {cur_id}')
+
         print(f'title we\'re taking: {cur_id}')
         # turns self.current_playlist into an unscrambled version
         self.query_list()
