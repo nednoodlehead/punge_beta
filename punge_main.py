@@ -1,3 +1,4 @@
+import re
 import tkinter
 from tkinter import ttk
 from tkinter import *
@@ -1151,195 +1152,183 @@ class Download(tk.Frame):
         Label(self, text='To download music for Punge, go over to youtube, and copy a link of a song, paste it into '
                          'the top box. Press enter or click download to download it. The song will show up in \'main\''
                          'playlist', wraplength=500).pack()
-        Button(self, text='FILELOCATION!', command=self.show_saveloc).place(x=20, y=30)
         Button(self, text='update saveloc', command=self.update_saveloc).place(x=20, y=70)
-
-        # -----Listism-----#
         self.elite_fileloc = "default_save_mp4"  # These will be detirmined by user eventualy
         self.elite_fileloc_thumbnail = "default_save_jpg"
         self.update_saveloc()
-        auto_album_recognize = "Provided"
-        forbidden_character = "<>:\"/\|?*"
-        ytlink_strvar = tk.StringVar()
-        # -----Functions-N-Stuff-----#
-        #ytlink_inputbox = Entry(self, bg=)
-
-
-        def ytlink_box_get_thread(*event):
-            thread1 = threading.Thread(target=ytlink_box_get, args=("*event"))
-            thread1.start()
-        def ytlink_box_get(*event):
-            ytlink = ytlink_strvar.get()
-            download_differentiate(ytlink)
-            ytlink_entry.delete(0, 'end')
-        ytlink_entry = ttk.Entry(self, textvariable=ytlink_strvar, width=30)
-        download_button = ttk.Button(self, text="Download!", command=ytlink_box_get_thread)
-        ytlink_entry.pack()
-        download_button.pack()
-        ytlink_entry.bind("<Return>", ytlink_box_get_thread)
+        self.auto_album_recognize = "Provided"
+        self.forbidden_character = "<>:\"/\|?*"
+        self.ytlink_strvar = tk.StringVar()
+        self.ytlink_entry = ttk.Entry(self, textvariable=self.ytlink_strvar, width=30)
+        self.download_button = ttk.Button(self, text="Download!", command=self.ytlink_box_get_thread)
+        self.ytlink_entry.pack()
+        self.download_button.pack()
+        self.ytlink_entry.bind("<Return>", self.ytlink_box_get_thread)
 
 
 
-        def download_single(ytlink):
-            video_main = YouTube(ytlink)
-            video1 = video_main.streams.get_audio_only()
-            download_path_ext = file_extension_change_mp3(video_main.author, video_main.title, video_main.video_id)
-            print("dwnload single1: " + download_path_ext)
-            download_path_ext = download_path_ext.strip()
-            print("dwnload single2: " + download_path_ext)
-            if os.path.exists(download_path_ext) is True:
-                print("File already downloaded. Try something new.")
-            else:
-                bruh = video1.download(output_path=self.elite_fileloc)
-                os.rename(bruh, download_path_ext)
-                urllib.request.urlretrieve(video_main.thumbnail_url,
-                                           file_extension_change_jpg(video_main.author, video_main.title, video_main.video_id))
-                add_to_db(video_main.author, video_main.title, video_main.video_id, video_main.description)
+    def ytlink_box_get_thread(self, *event):
+        thread1 = threading.Thread(target=self.ytlink_box_get, args=("*event"))
+        thread1.start()
 
-        def download_playlist(ytlink):  # try except and skip downloaded songs
-            video1 = Playlist(ytlink)
-            for video_main in video1.videos:
-                downloadname = playlist_mp3_fix(video_main.author, video_main.title, video_main.video_id)
-                try:
-                    video_sep2 = video_main.streams.get_audio_only()
-                except:
-                    # Needed for anti-private / age restircted videos
-                    continue
-                print('I will now continue ! (implies not private or restricted)')
-                if os.path.exists(downloadname) is True:
-                    print("File already downloaded(playlist). Try something new.")
-                else:
-                    bruh = video_sep2.download(output_path=self.elite_fileloc)
-                    try:
-                        os.rename(bruh, downloadname) #changed to include video_id for times when the title and author are identical
-                    except FileExistsError:
-                        print("ALready added, going on...") #TODO when downloading vid that exists, creates mp4 version. it should delete it instead. problem #354
-                        urllib.request.urlretrieve(video_main.thumbnail_url,
-                                                   file_extension_change_jpg(video_main.author, video_main.title, video_main.video_id))
-                        add_to_db(video_main.author, video_main.title,
-                                  video_main.video_id, video_main.description)
-                        #Could be a function but eh
-                    urllib.request.urlretrieve(video_main.thumbnail_url, #Most effects name like Jay-Z. Where jay = title and z = artist. try to make "jay - z.mp3"
-                                               file_extension_change_jpg(video_main.author, video_main.title, video_main.video_id))
-                    add_to_db(video_main.author, video_main.title,
-                              video_main.video_id, video_main.description)
+    def ytlink_box_get(self, *event):
+        ytlink = self.ytlink_strvar.get()
+        self.download_differentiate(ytlink)
+        self.ytlink_entry.delete(0, 'end')
 
-        def download_differentiate(ytlink):
-            if "list=" in ytlink:
-                download_playlist(ytlink)
-            else:
-                download_single(ytlink)
 
-        def playlist_mp3_fix(vid_auth, vid_titl, vid_id):
-            pt1 = (difference_author_title(vid_auth, vid_titl)[1] + " - " +
-                   difference_author_title(vid_auth, vid_titl)[0])
-            pt1_fixed1 = character_replacer(pt1)
-            pt1_fixed2 = self.elite_fileloc + pt1_fixed1 + vid_id + ".mp3"
-            return pt1_fixed2
 
-        def add_to_db(vid_auth, vid_titl, vid_id, vid_desc):
-            part1_db = difference_author_title(vid_auth, vid_titl)[0],
-            #Fix for part1_db being a tuple for whatever reason
-            part1_fixed = ''.join(part1_db)
-            print(f'PART THAT MESSES UP: {part1_db}')
-            part2_db = difference_author_title(vid_auth, vid_titl)[1]
-            print(f'should look normal: {part2_db}')
-            part3_db = file_extension_change_mp3(vid_auth, vid_titl, vid_id)
-            part4_db = file_extension_change_jpg(vid_auth, vid_titl, vid_id)
-            part5_db = album_check(vid_desc)
-            part6_db = vid_id
 
-            class_object = db.import_info123(part1_fixed, part2_db, part3_db, part4_db, part5_db, part6_db)
+    def download_single(self, ytlink):
+        video_main = YouTube(ytlink)
+        video1 = video_main.streams.get_audio_only()
+        download_path_ext = self.file_extension_change_mp3(video_main.author, video_main.title, video_main.video_id)
+        if os.path.exists(download_path_ext) is True:
+            print("File already downloaded. Try something new.")
+        else:
+            bruh = video1.download(output_path=self.elite_fileloc)
+            print(f'bruh: {bruh}')
+            os.rename(bruh, download_path_ext)
+            thumbnail = self.file_extension_change_jpg(video_main.author, video_main.title, video_main.video_id)
+            urllib.request.urlretrieve(video_main.thumbnail_url, thumbnail)
+            # right here, run a function to check description if it has the 'chapters'. if so, prompt user with
+            # x = tkinter.messagebox. if x is true: run the 'segment_album(run some type of (already existing) function
+            # that sorts out the title // author, album got from description, video_main.uniqueid, jpgpath= the path
+            # right above this (file_ext_cng_jpg)
+            self.check_description(video_main.description, video_main.title, video_main.author, video_main.video_id, download_path_ext
+                                   , thumbnail)
+
+    def download_playlist(self, ytlink):  # try except and skip downloaded songs
+        video1 = Playlist(ytlink)
+        for video_main in video1.videos:
+            downloadname = self.playlist_mp3_fix(video_main.author, video_main.title, video_main.video_id)
             try:
-                Session = sessionmaker(bind=db.engine)
-                session = Session()
-                session.add(class_object)
-                session.commit()
-            except sqlalchemy.exc.IntegrityError:
-                Session = sessionmaker(bind=db.engine) #could be optimized with function ?
-                session = Session()
-                session.rollback()
-                print("Inserted already")
+                video_sep2 = video_main.streams.get_audio_only()
+            except:
+                # Needed for anti-private / age restircted videos
+                continue
+            print('I will now continue ! (implies not private or restricted)')
+            if os.path.exists(downloadname) is True:
+                print("File already downloaded(playlist). Try something new.")
+            else:
+                bruh = video_sep2.download(output_path=self.elite_fileloc)
+                try:
+                    os.rename(bruh, downloadname) #changed to include video_id for times when the title and author are identical
+                except FileExistsError:
+                    # TODO this are needs to be cleaned up a wee bit. prep_and_execute is depreciated
+                    print("ALready added, going on...") #TODO when downloading vid that exists, creates mp4 version. it should delete it instead. problem #354
+                    urllib.request.urlretrieve(video_main.thumbnail_url,
+                                               self.file_extension_change_jpg(video_main.author, video_main.title, video_main.video_id))
+                    self.prep_and_execute_single(video_main.author, video_main.title,
+                              video_main.video_id, video_main.description)
+                    #Could be a function but eh
+                urllib.request.urlretrieve(video_main.thumbnail_url, #Most effects name like Jay-Z. Where jay = title and z = artist. try to make "jay - z.mp3"
+                                           self.file_extension_change_jpg(video_main.author, video_main.title, video_main.video_id))
+                self.prep_and_execute_single(video_main.author, video_main.title,
+                          video_main.video_id, video_main.description)
 
-        def character_replacer(phrase):
+    def download_differentiate(self, ytlink):
+        if "list=" in ytlink:
+            self.download_playlist(ytlink)
+        else:
+            self.download_single(ytlink)
+
+    def playlist_mp3_fix(self, vid_auth, vid_titl, vid_id):
+        pt1 = (self.difference_author_title(vid_auth, vid_titl)[1] + " - " +
+               self.difference_author_title(vid_auth, vid_titl)[0])
+        pt1_fixed1 = self.character_replacer(pt1)
+        pt1_fixed2 = self.elite_fileloc + pt1_fixed1 + vid_id + ".mp3"
+        return pt1_fixed2
+
+    # whole functio needs rework. push all the fixing stuff into new function for name convention
+    def prep_and_execute_single(self, author, title, album, uniqueid):
+        part1_db = self.difference_author_title(author, title)[0],
+        part1_fixed = ''.join(part1_db)
+        part2_db = self.difference_author_title(author, title)[1]
+        print(f'should look normal: {part2_db}')
+        part3_db = self.file_extension_change_mp3(author, title, uniqueid)
+        part4_db = self.file_extension_change_jpg(author, title, uniqueid)
+        self.single_add_to_db(part1_fixed, part2_db, part3_db, part4_db, album, uniqueid)
+
+
+    def single_add_to_db(self, author, title, album, savelocjpg, savelocmp3, uniqueid):
+        con = sqlite3.connect("./MAINPLAYLIST.sqlite")
+        cur = con.cursor()
+        print(f'auth: {author} | title: {title} | album: {album} | jpg: {savelocjpg} | mp3: {savelocmp3} ')
+        cur.execute("INSERT INTO main VALUES (?,?,?,?,?,?)", (title, author, savelocmp3, savelocjpg, album, uniqueid))
+        con.commit()
+        con.close()
+        print('download success!')
+
+    def character_replacer(self, phrase):
+        mainpart_fixed = ''
+        for letter in phrase:
+            if letter in self.forbidden_character:
+                mainpart_fixed = mainpart_fixed + ''
+            else:
+                mainpart_fixed = mainpart_fixed + letter
+        return mainpart_fixed
+
+    def character_replacer_vevo(self, phrase):
+        if 'VEVO' in phrase:
+            first_letter_check = True
+            mainpart_fixed2 = phrase[:-4]
             mainpart_fixed = ''
-            for letter in phrase:
-                if letter in forbidden_character:
-                    mainpart_fixed = mainpart_fixed + ''
+            for letter in mainpart_fixed2:
+                if letter.isupper() is True and first_letter_check is False:
+                    mainpart_fixed = mainpart_fixed + " " + letter
                 else:
                     mainpart_fixed = mainpart_fixed + letter
+                    first_letter_check = False
+            return mainpart_fixed
+        else:
+            mainpart_fixed = phrase
             return mainpart_fixed
 
-        def character_replacer_vevo(phrase):
-            if 'VEVO' in phrase:
-                first_letter_check = True
-                mainpart_fixed2 = phrase[:-4]
-                mainpart_fixed = ''
-                for letter in mainpart_fixed2:
-                    if letter.isupper() is True and first_letter_check is False:
-                        mainpart_fixed = mainpart_fixed + " " + letter
-                    else:
-                        mainpart_fixed = mainpart_fixed + letter
-                        first_letter_check = False
-                return mainpart_fixed
-            else:
-                mainpart_fixed = phrase
-                return mainpart_fixed
+    def file_extension_change_mp3(self, vid_auth, vid_titl, vid_id):
+        change_mp3_author = self.difference_author_title(vid_auth, vid_titl)[1]
+        change_mp3_title = self.difference_author_title(vid_auth, vid_titl)[0]
+        change_mp3_author_fixed = self.character_replacer_vevo(change_mp3_author)
+        change_mp3_title_fixed = self.character_replacer(change_mp3_title)
+        mainpart = change_mp3_author_fixed + " - " + change_mp3_title_fixed
+        export_file_mp3 = self.elite_fileloc + mainpart + vid_id + ".mp3"
+        # might be not needed
+        export_file_mp3.strip()
+        return export_file_mp3
 
-        def file_extension_change_mp3(vid_auth, vid_titl, vid_id):
-            change_mp3_author = difference_author_title(vid_auth, vid_titl)[1]
-            change_mp3_title = difference_author_title(vid_auth, vid_titl)[0]
-            change_mp3_author_fixed = character_replacer_vevo(change_mp3_author)
-            change_mp3_title_fixed = character_replacer(change_mp3_title)
-            mainpart = change_mp3_author_fixed + " - " + change_mp3_title_fixed
-            export_file_mp3 = self.elite_fileloc + mainpart + vid_id + ".mp3"
-            print(export_file_mp3)
-            return export_file_mp3
-
-        def file_extension_change_jpg(vid_auth, vid_titl, vid_id):
-            mainpart = (difference_author_title(vid_auth, vid_titl)[1] + " - " +
-                        difference_author_title(vid_auth, vid_titl)[0])
-            mainpart_fixed = character_replacer(mainpart)
-            export_file_jpg = self.elite_fileloc_thumbnail + mainpart_fixed + vid_id + ".jpg"
-            return export_file_jpg
+    def file_extension_change_jpg(self, vid_auth, vid_titl, vid_id):
+        mainpart = (self.difference_author_title(vid_auth, vid_titl)[1] + " - " +
+                    self.difference_author_title(vid_auth, vid_titl)[0])
+        mainpart_fixed = self.character_replacer(mainpart)
+        export_file_jpg = self.elite_fileloc_thumbnail + mainpart_fixed + vid_id + ".jpg"
+        # might be not needed
+        export_file_jpg.strip()
+        return export_file_jpg
 
 
-        def author_title_decide(vid_auth, vid_titl):
+    def author_title_decide(self, vid_auth, vid_titl):
+        author_fixed = vid_auth[:-8]  # Sorts out > name - topic [bugged one]
+        title_fixed = vid_titl
+        return title_fixed.strip(), author_fixed.strip()
 
-            author_fixed = vid_auth[:-8]  # Sorts out > name - topic [bugged one]
-            title_fixed = vid_titl
-            return title_fixed.strip(), author_fixed.strip()
+    def title_author_split(self, vid_auth, vid_titl):
+        title_fixed = vid_titl.split("-")[1]  # Sorts out title based name / title [not bugged]
+        author_fixed = vid_titl.split("-")[0]
+        return title_fixed.strip(), author_fixed.strip()
 
-        def title_author_split(vid_auth, vid_titl):
-            title_fixed = vid_titl.split("-")[1]  # Sorts out title based name / title [not bugged]
-            author_fixed = vid_titl.split("-")[0]
-            return title_fixed.strip(), author_fixed.strip()
+    def title_neither(self, vid_auth, vid_titl):
+        title_fixed = vid_titl  # sorts out author = artists and YTTitle = SongTitle
+        author_fixed = vid_auth
+        return title_fixed.strip(), author_fixed.strip()
+    # function to call for getting the 'correct' author / title
+    def difference_author_title(self, vid_auth, vid_titl):
+        if "Topic" in vid_auth:
+            return self.author_title_decide(vid_auth, vid_titl)
+        elif "-" in vid_titl:
+            return self.title_author_split(vid_auth, vid_titl)
+        else:
+            return self.title_neither(vid_auth, vid_titl)
 
-        def title_neither(vid_auth, vid_titl):
-            title_fixed = vid_titl  # sorts out author = artists and YTTitle = SongTitle
-            author_fixed = vid_auth
-            return title_fixed.strip(), author_fixed.strip()
-
-        def difference_author_title(vid_auth, vid_titl):
-
-            if "Topic" in vid_auth:
-                return author_title_decide(vid_auth, vid_titl)
-            elif "-" in vid_titl:
-                return title_author_split(vid_auth, vid_titl)
-            else:
-                return title_neither(vid_auth, vid_titl)
-
-
-        def album_check(description): #redefine to take information straight from video_main.desc
-            if auto_album_recognize in description:
-                description = description.split("\n")
-                imported_album = description[4]
-            else:
-                imported_album = "Single"
-            return imported_album
-        def funny_check(self, event):
-            print("Ive tried my best")
-        #self.yt_link_entry.bind("<Return>", self.bind(funny_check))
     def update_saveloc(self):
         with open("Cache/downloadlocation.json") as file:
             x = json.load(file)
@@ -1351,10 +1340,139 @@ class Download(tk.Frame):
         print(self.elite_fileloc)
         print(self.elite_fileloc_thumbnail)
 
-    def show_saveloc(self):
-        print(f'loc: {self.elite_fileloc}')
-        print(f'loc: {self.elite_fileloc_thumbnail}')
+    # parses the description when downloading a video. Extracts whether or not it is an album, and whether it is a singl
+    # it takes in the raw, unprocessed data from the main download function. It processes it all here. Reason being is
+    # that an album will have the format of <artist> - <album>. while a single: <artist> - <song>. processing beforehand
+    # is a bit of a headache, so they are processed here for accuracy
+    def check_description(self, description, title, author, uniqueid, mp3path, jpgpath):
+        # regex for a 00:00, if it finds it, it is an album. split("-"). [0] = artist . [1] = album
+        # i would not doubt that this regex catches false positives, but who would lay a decription out like that?
+        chapter_check = re.search(r"\d*:\d\d", description)  # .group()
+        # if there are chapters in the video description:
+        if chapter_check:
+            # author, album is decided here. so if the title of the video is: Kanye West - college dropout:
+            # "Kanye West" becomes the author, and college dropout becomes the album for all entries
+            author = title.split("-")[0]
+            album = title.split("-")[1]
+            # here we generate the dictionary containing key: title, value: timestamp song begins (in ms)
+            value_dict = self.descrip_parse(description)
+            self.segment_album(author, album, uniqueid, mp3path, jpgpath, value_dict)
+        else:
+            if self.auto_album_recognize in description:
+                description = description.split("\n")
+                album = description[4]
+            else:
+                album = "Single"
+            title, author = self.difference_author_title(author, title)
+            self.single_add_to_db(author, title, album, jpgpath, mp3path, uniqueid)
 
+
+
+    def segment_album(self, author, album, uniqueid, mp3path, jpgpath, value_dict):
+        audio = pydub.AudioSegment.from_file(mp3path)
+        # used to iterate over the dictionary's values. Which are the time stamps.
+        value_dict_iter = iter(value_dict.values())
+        # TODO rename incoming jpg path -> savelocthumb ^. it seems to be mismatched
+        # skip over the first value, because the 'time' value is the first timestamp. the next() is the second
+        # so if the dict goes: 0:00, 1:50, 2:33. It will go: 0:00-1:50. 1:50-2:33. 2:33-end (-2:33:)
+        next(value_dict_iter)
+        # last timestamp used for the final audiosegment that gets processed before the stopiteration flag is called
+        # it is used to get an accurate timestamp on the final song
+        last_timestamp = 0
+        # define the connection to the database only once, so all the entries can use the same connection. is passed in
+        # to the self.segment_album_add_to_db function
+        con = sqlite3.connect("./MAINPLAYLIST.sqlite")
+        cur = con.cursor()
+        # Count is needed to append to the unique ID. title and time are the contents from the dictionary
+        for count, (title, time_) in enumerate(value_dict.items()):
+            print(title, time_, count)
+            # sets the current audiosegment as 'time' (which is when song begins) -> next (when the next song begins)
+            # if overlap occurs. remove like 0.1 from next?
+            try:
+                # the audiosegment is defined. (to be turned into file using pydub when passed into the next function
+                # print(f'time for {title} is: {self.ms_to_min(time_)} -> {self.ms_to_min(next(value_dict_iter))}')
+                cur_seg = audio[time_:next(value_dict_iter)]
+                last_timestamp = time_
+            except StopIteration:
+                # this is raised on the final iteration when next() reaches the end of the iterator.
+                print(f'end of iter reached! title: {title}')
+                cur_seg = audio[last_timestamp:time_]
+                # uniqueid+count is needed to append a number (cast as str) onto the unique id so the primary key
+                # uniqueness is upheld. so id: hellome -> hellome0, hellome1, hellome2, etc...
+            print(f'len of song going into: {cur_seg.duration_seconds}')
+            self.segment_album_add_to_db(cur, title, author, album, uniqueid + str(count), jpgpath, cur_seg)
+        print(f'this is the dict: {value_dict}')
+        con.commit()
+        con.close()
+        # this removes the original path to the mp3. might want to update sometime to not download this in the firstpalc
+        os.remove(mp3path)
+        print("FINISHED!!!!")
+
+    # used for each song inside an album when segmenting. takes the data from the loop, and creates new indiv entries
+    def segment_album_add_to_db(self, cursor, title, author, album, uniqueid, savelocationthumb, segment):
+        print(f'{cursor} | {title} | {author} | {album} | {uniqueid} | {savelocationthumb} | {segment}')
+        saveloc = self.file_extension_change_mp3(author, title, uniqueid)
+        print(f'length of segment! {segment.duration_seconds}')
+        self.save_segment_album_mp3(saveloc, segment)
+        # compared to typically importing, the savelocthumb would be generated here. But it is not so there is only
+        # one instance of the album image. the data is shared across all entries. it is defined in 'segment_album'
+        title_and_author = self.difference_author_title(author, title)
+        # title_ returns a tuple
+        title_ = title_and_author[0]
+        # tuple -> string
+        new_title = ''.join(title_)
+        author_ = title_and_author[1]
+        cursor.execute("INSERT INTO main VALUES (?,?,?,?,?,?)", (new_title, author_, saveloc, savelocationthumb, album, uniqueid))
+
+    def save_segment_album_mp3(self, location, segment):
+        # for adding metadata in the future:
+        # segment.export(location, format="mp3", tags={'artist': 'Ye).. etc
+        # https://github.com/jiaaro/pydub -> examples
+        segment.export(location, format="mp3")
+
+    # checks whether this is an album (one long video with timestamps) or not. Calls the apropriate function
+    def desc_dict(self, desc):
+        # finds all letters, and all inbetween
+        old_title = re.findall(r"[a-zA-Z,]+", desc)
+        new_title = ' '.join(old_title)
+        timestamp = re.search(r"\d*:\d\d", desc).group()
+        return (new_title, self.timestamp_convert(timestamp))
+
+    def timestamp_convert(self, timestamp):
+        # turn a time like 5:12 -> millisecond conversion
+        split = timestamp.split(":")
+        minutes = int(split[0])
+        seconds = int(split[1])
+        minutes_conv = minutes * 60
+        seconds_total = seconds + minutes_conv
+        miliseconds = seconds_total * 1000
+        return miliseconds
+
+    def descrip_parse(self, descripton):
+        # dict that will be returned from the function !
+        return_dict = {}
+        # list of the input description, spread out by newlines
+        total_lines = descripton.split("\n")
+        # for each line out of said newlines
+        for desc in total_lines:
+            try:
+                # set x, y = title, timestamp being returned
+                x, y = self.desc_dict(desc)
+                # add x, y to dictionary
+                return_dict[x] = y
+                # attirbute error raised if the regex fails
+            except AttributeError:
+                # if regex does fail, just 'skip' over the failiure
+                continue
+        print(f'reutndict; {return_dict}')
+        return return_dict
+
+    @staticmethod
+    def ms_to_min(ms):
+        sec = ms / 1000
+        minutes = sec // 60
+        new_sec = sec % 60
+        return f'{int(minutes)}:{int(new_sec)}'
 
 
 class mp4_downloader(tk.Frame):
@@ -1478,7 +1596,7 @@ class mp4_downloader(tk.Frame):
             self.desire_path.set(new_json['mp4_downloads'][0])
 
 
-
+# blueprint for entries into the database
 class import_music:
     def __init__(self, Title, Author, Album, SavelocationThumb, Savelocation, Uniqueid):
         self.Title = Title
@@ -1586,11 +1704,6 @@ class active_playlist(tk.Frame):
             # self.controller.force_pause()
 
 
-
-
-    def shown(self, event):
-        print("New thingy shown")
-
     def on_page_begin(self, event):
         # Deletes all of the current data in the Treeview
         self.playlist_table.delete(*self.playlist_table.get_children())
@@ -1648,9 +1761,6 @@ class active_playlist(tk.Frame):
             song_broken_down = self.playlist_table.item(item, 'values')
             print(f'title?: {song_broken_down[0]}, author:{song_broken_down[1]}, saveloc:{song_broken_down[2]}, thumbnail:{song_broken_down[3]}, album:{song_broken_down[4]}, id:{song_broken_down[5]}')
             print(f'song_suple: {item}')
-
-            #print(f'selected_songs: {selected_songs}')
-            #song_tuple = self.playlist_table.item(selected_songs, 'values')
             cur1.execute("INSERT INTO {} VALUES (?,?,?,?,?,?)".format(playlist[0]), (song_broken_down[1], song_broken_down[0], song_broken_down[3], song_broken_down[4], song_broken_down[2], song_broken_down[5]))
         con1.commit()
 
@@ -1676,8 +1786,12 @@ class active_playlist(tk.Frame):
                 multiple_id = (self.playlist_table.item(item)['values'])
                 self.delete_from_db(multiple_id[5], multiple_id[1])
                 self.playlist_table.delete(item)
-                os.remove(multiple_id[3])
-                os.remove(multiple_id[4])
+                try:
+                    os.remove(multiple_id[3])
+                    os.remove(multiple_id[4])
+                except FileNotFoundError:
+                    # if it doesn't find the file to remove, who cares
+                    continue
 
     def half_delete_multiple(self):
         print('using half_delete!')
