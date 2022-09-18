@@ -4,6 +4,7 @@ use pyo3::prelude::*;
 use walkdir::WalkDir;
 use rusqlite::*;
 use std::fs;
+use pyo3::impl_::pyfunction::wrap_pyfunction;
 
 const MP3PATH: &str = "F:/Punge Downloads/Downloads/";
 const JPGPATH: &str = "F:/Punge Downloads/thumbnails/";
@@ -82,8 +83,19 @@ return (return_vec_mp3, return_vec_jpg)
 
 }
 
+#[pyfunction]
+fn test_delete(in_vec_jpg: Vec<String>, in_vec_mp3: Vec<String>) -> String {
+    let mut count_mp3 = 0;
+    for _ in in_vec_jpg {
+        let count_mp3 = count_mp3 + 1;
+    }
+    let mut count_jpg = 0;
+    for _ in in_vec_mp3 {
+        let count_jpg = count_jpg + 1;
+    }
 
-
+    return format!("{} jpgs will be removed. {} mp3s will be removed.", count_jpg, count_mp3)
+}
 #[pyfunction]
 fn delete_all(in_vec_jpg: Vec<String>, in_vec_mp3: Vec<String> ) {
     for item in in_vec_jpg {
@@ -103,5 +115,6 @@ fn data_clean(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(delete_all, m)?)?;
     m.add_function(wrap_pyfunction!(in_dir_not_db, m)?)?;
     m.add_function(wrap_pyfunction!(replace_all_saveloc_prefix, m)?)?;
+    m.add_function(wrap_pyfunction!(test_delete, m)?)?;
     Ok(())
 }
