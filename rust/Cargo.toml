@@ -1,14 +1,15 @@
 [package]
-name = "rust"
-version = "0.1.0"
+name = "punge_backend"
+version = "0.1.1"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
-name = "data_clean"
+name = "punge_backend"
 crate-type = ["cdylib"]
 
+
 [dependencies]
-pyo3 = { version = "0.16.5", features = ["extension-module"] }
+pyo3 = { version = "0.16.6", features = ["extension-module"] }
 rusqlite = { version = "0.27.0", features = ["bundled"] }
 walkdir = "2.3.2"
