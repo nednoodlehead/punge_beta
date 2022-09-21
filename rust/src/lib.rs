@@ -111,7 +111,7 @@ fn delete_all(in_vec_jpg: Vec<String>, in_vec_mp3: Vec<String> ) {
 
 
 #[pymodule]
-fn data_clean(_py: Python, m: &PyModule) -> PyResult<()> {
+fn punge_backend(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(delete_all, m)?)?;
     m.add_function(wrap_pyfunction!(in_dir_not_db, m)?)?;
     m.add_function(wrap_pyfunction!(replace_all_saveloc_prefix, m)?)?;
