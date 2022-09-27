@@ -13,6 +13,7 @@ import db
 import time
 import sqlalchemy.exc
 from pytube import YouTube, Playlist
+from pydub.exceptions import PydubException
 from sqlalchemy.orm import sessionmaker
 import threading
 import pydub
@@ -24,11 +25,11 @@ from pycaw.pycaw import AudioUtilities
 import sys
 from system_hotkey import SystemHotkey
 import json
-# import data_clean as dc # depreciated, old
-# also this name will be changed eventually
-import rust as dc
+import punge_rust_backend as dc
+# above is used in prod. below is used in IDE. reason for; maturin is sort of finnicky. only wants to work in prod /
+# terminal. but refuses to import for IDE.
+# import PungeDataClean as dc
 global_hotkey = SystemHotkey()
-
 # A kill()-able thread. Needed for the music. i forget source of this :(. will add later !
 class KThread(threading.Thread):
     """A subclass of threading.Thread, with a kill()
@@ -285,6 +286,11 @@ class tkinter_main(tk.Tk):
             if type(item) == tkinter.Button:
                 item.destroy()
 
+    def refresh_playlist_submenu(self):
+        self.refresh_playlists()
+        for playlist_name in self.query_all_playlists():
+            self.playlist_submenu.add_command(label=playlist_name, command=lambda playlist_name=playlist_name: self.add_to_playlist(playlist_name))
+
 
     def delete_playlist(self, playlist):
         if playlist[0] == 'main':
@@ -366,6 +372,8 @@ class tkinter_main(tk.Tk):
         playlist_create = ttk.Button(popup_rename_window, text="Create!!", command=lambda: create_playlist_combine(playlist_entry.get()))
         playlist_create.place(x=75, y=45)
 
+
+
         def underscore_replace(to_replace):
             new_str = to_replace.replace(" ", "_")
             return new_str
@@ -386,6 +394,8 @@ class tkinter_main(tk.Tk):
             cur1 = con1.cursor()
             cur1.execute("CREATE TABLE IF NOT EXISTS " +playlist_entry_got+ " (Title TEXT, Author TEXT,Savelocation TEXT,SavelocationThumb TEXT,Album TEXT, Uniqueid TEXT NOT NULL PRIMARY KEY)")
             con1.commit()
+            con1.close()
+            self.refresh_playlists()
             self.query_all_playlists()
 
     def query_all_playlists(self):
@@ -407,6 +417,7 @@ class tkinter_main(tk.Tk):
             new_button.bind("<Button-3>", lambda e, playlist_name=playlist_name:
                                           self.playlist_menu_popup(e, playlist_name))
             default_y = default_y + new_button.winfo_height() + 10
+        con1.close()
 
 
 
@@ -1094,6 +1105,7 @@ class Settings(tk.Frame):
             dc.delete_all(dc.in_dir_not_db()[0], dc.in_dir_not_db()[1])
 
 
+
     def read_entries(self):
         with open(self.path, 'r') as file:
             x = json.load(file)
@@ -1153,6 +1165,8 @@ class Download(tk.Frame):
                          'the top box. Press enter or click download to download it. The song will show up in \'main\''
                          'playlist', wraplength=500).pack()
         Button(self, text='update saveloc', command=self.update_saveloc).place(x=20, y=70)
+        Button(self, text='mass recovery :(', command=self.mass_recovery).place(x=200, y=500)
+        Button(self, text='sql fix!', command=self.update_sql).place(x=350, y=500)
         self.elite_fileloc = "default_save_mp4"  # These will be detirmined by user eventualy
         self.elite_fileloc_thumbnail = "default_save_jpg"
         self.update_saveloc()
@@ -1165,8 +1179,35 @@ class Download(tk.Frame):
         self.download_button.pack()
         self.ytlink_entry.bind("<Return>", self.ytlink_box_get_thread)
 
+    # if you somehow delete every download using the data_clean module, this will recover it for you
+    def mass_recovery(self):
+        con = sqlite3.connect("MAINPLAYLIST.sqlite")
+        cur = con.cursor()
+        main_query = cur.execute("SELECT Uniqueid FROM main")
+        for link in main_query:
+            link = link[0]
+            yt_link = r"https://www.youtube.com/watch?v=" + link
+            print(yt_link)
+            try:
+                self.download_single(yt_link)
+            except: # broad for a reason :D
+                print('fail!')
 
-
+    def update_sql(self):
+        con = sqlite3.connect("MAINPLAYLIST.sqlite")
+        cur = con.cursor()
+        main_query = cur.execute("SELECT Title, Author, Album, Savelocation, SavelocationThumb, Uniqueid FROM main")
+        exe_cur = con.cursor()
+        for title, author, album, saveloc, savelocthumb, uniqueid in main_query:
+            if uniqueid not in saveloc:
+                scheme_mp3 = saveloc[:-4]
+                scheme_jpg = savelocthumb[:-4]
+                new_saveloc = "".join((scheme_mp3, uniqueid, ".mp3"))
+                new_savelocthumb = "".join((scheme_jpg, uniqueid, ".jpg"))
+                print(f"updated:: {new_saveloc}")
+                exe_cur.execute("UPDATE main SET Title=?, Author=?, Album=?, Savelocation=?, SavelocationThumb=? WHERE Uniqueid=?", (title, author, album, new_saveloc, new_savelocthumb, uniqueid))
+                # TODO Perhaps change the naming convention from (1,2..8,9,10) > (01,02..08,09,10) to preserve accurate length of uniqueid
+        con.commit()
     def ytlink_box_get_thread(self, *event):
         thread1 = threading.Thread(target=self.ytlink_box_get, args=("*event"))
         thread1.start()
@@ -1186,7 +1227,10 @@ class Download(tk.Frame):
         if os.path.exists(download_path_ext) is True:
             print("File already downloaded. Try something new.")
         else:
-            bruh = video1.download(output_path=self.elite_fileloc)
+            try:
+                bruh = video1.download(output_path=self.elite_fileloc)
+            except PydubException:
+                print("undownloadable :(")
             print(f'bruh: {bruh}')
             os.rename(bruh, download_path_ext)
             thumbnail = self.file_extension_change_jpg(video_main.author, video_main.title, video_main.video_id)
@@ -1200,12 +1244,19 @@ class Download(tk.Frame):
 
     def download_playlist(self, ytlink):  # try except and skip downloaded songs
         video1 = Playlist(ytlink)
+        try:
+            # this should define both the author and they album at the same time, but the functions to define the auth
+            # and title are finnicky at best
+            album = video1.title.split("-")[1]
+            # if that fails, the first video's title will be used as author. likely failing tbh
+        except ValueError:
+            album = "single"
         for video_main in video1.videos:
             downloadname = self.playlist_mp3_fix(video_main.author, video_main.title, video_main.video_id)
             try:
                 video_sep2 = video_main.streams.get_audio_only()
             except:
-                # Needed for anti-private / age restircted videos
+                # Needed for private / age restircted videos
                 continue
             print('I will now continue ! (implies not private or restricted)')
             if os.path.exists(downloadname) is True:
@@ -1219,13 +1270,13 @@ class Download(tk.Frame):
                     print("ALready added, going on...") #TODO when downloading vid that exists, creates mp4 version. it should delete it instead. problem #354
                     urllib.request.urlretrieve(video_main.thumbnail_url,
                                                self.file_extension_change_jpg(video_main.author, video_main.title, video_main.video_id))
-                    self.prep_and_execute_single(video_main.author, video_main.title,
-                              video_main.video_id, video_main.description)
+                    self.prep_and_execute_single(video_main.author, video_main.title, album,
+                              video_main.video_id)
                     #Could be a function but eh
                 urllib.request.urlretrieve(video_main.thumbnail_url, #Most effects name like Jay-Z. Where jay = title and z = artist. try to make "jay - z.mp3"
                                            self.file_extension_change_jpg(video_main.author, video_main.title, video_main.video_id))
-                self.prep_and_execute_single(video_main.author, video_main.title,
-                          video_main.video_id, video_main.description)
+                self.prep_and_execute_single(video_main.author, video_main.title, album,
+                          video_main.video_id)
 
     def download_differentiate(self, ytlink):
         if "list=" in ytlink:
@@ -1242,20 +1293,24 @@ class Download(tk.Frame):
 
     # whole functio needs rework. push all the fixing stuff into new function for name convention
     def prep_and_execute_single(self, author, title, album, uniqueid):
-        part1_db = self.difference_author_title(author, title)[0],
-        part1_fixed = ''.join(part1_db)
-        part2_db = self.difference_author_title(author, title)[1]
-        print(f'should look normal: {part2_db}')
-        part3_db = self.file_extension_change_mp3(author, title, uniqueid)
-        part4_db = self.file_extension_change_jpg(author, title, uniqueid)
-        self.single_add_to_db(part1_fixed, part2_db, part3_db, part4_db, album, uniqueid)
+        vid_author = self.difference_author_title(author, title)[0],
+        vid_author = ''.join(vid_author)
+        vid_title = self.difference_author_title(author, title)[1]
+        print(f'should look normal: {vid_title}')
+        savelocmp3 = self.file_extension_change_mp3(author, title, uniqueid)
+        savelocjpg = self.file_extension_change_jpg(author, title, uniqueid)
+        self.single_add_to_db(vid_author, vid_title, savelocjpg, savelocmp3, album, uniqueid)
 
 
-    def single_add_to_db(self, author, title, album, savelocjpg, savelocmp3, uniqueid):
+    def single_add_to_db(self, author, title, savelocjpg, savelocmp3, album,  uniqueid):
         con = sqlite3.connect("./MAINPLAYLIST.sqlite")
         cur = con.cursor()
-        print(f'auth: {author} | title: {title} | album: {album} | jpg: {savelocjpg} | mp3: {savelocmp3} ')
-        cur.execute("INSERT INTO main VALUES (?,?,?,?,?,?)", (title, author, savelocmp3, savelocjpg, album, uniqueid))
+        print(f'auth: {author} | title: {title} | album: {album} | jpg: ##{savelocjpg}## | mp3: @@{savelocmp3}@@ ')
+        print(type(author), type(title), type(album), type(savelocjpg), type(savelocmp3), type(savelocjpg))
+        try:
+            cur.execute("INSERT INTO main VALUES (?,?,?,?,?,?)", (title, author, savelocmp3, savelocjpg, album, uniqueid))
+        except sqlite3.IntegrityError:
+            print('unique constraint failed, (are you using self.mass_recovery?')
         con.commit()
         con.close()
         print('download success!')
@@ -1371,36 +1426,41 @@ class Download(tk.Frame):
     def segment_album(self, author, album, uniqueid, mp3path, jpgpath, value_dict):
         audio = pydub.AudioSegment.from_file(mp3path)
         # used to iterate over the dictionary's values. Which are the time stamps.
-        value_dict_iter = iter(value_dict.values())
-        # TODO rename incoming jpg path -> savelocthumb ^. it seems to be mismatched
+        # this takes the timestamps and puts them into an iterable list.
+        value_dict_iter = iter(x[1] for x in value_dict)
         # skip over the first value, because the 'time' value is the first timestamp. the next() is the second
         # so if the dict goes: 0:00, 1:50, 2:33. It will go: 0:00-1:50. 1:50-2:33. 2:33-end (-2:33:)
         next(value_dict_iter)
         # last timestamp used for the final audiosegment that gets processed before the stopiteration flag is called
         # it is used to get an accurate timestamp on the final song
-        last_timestamp = 0
         # define the connection to the database only once, so all the entries can use the same connection. is passed in
         # to the self.segment_album_add_to_db function
         con = sqlite3.connect("./MAINPLAYLIST.sqlite")
         cur = con.cursor()
         # Count is needed to append to the unique ID. title and time are the contents from the dictionary
-        for count, (title, time_) in enumerate(value_dict.items()):
+        for count, (title, time_) in enumerate(value_dict):
             print(title, time_, count)
             # sets the current audiosegment as 'time' (which is when song begins) -> next (when the next song begins)
             # if overlap occurs. remove like 0.1 from next?
             try:
                 # the audiosegment is defined. (to be turned into file using pydub when passed into the next function
                 # print(f'time for {title} is: {self.ms_to_min(time_)} -> {self.ms_to_min(next(value_dict_iter))}')
-                cur_seg = audio[time_:next(value_dict_iter)]
-                last_timestamp = time_
+                next_audio = next(value_dict_iter)
+                cur_seg = audio[time_:next_audio]
+                print(f'goes from: {time_} -> {next_audio} // {time_ - next_audio}')
+                self.segment_album_add_to_db(cur, title, author, album, uniqueid + str(count), jpgpath, cur_seg)
             except StopIteration:
                 # this is raised on the final iteration when next() reaches the end of the iterator.
                 print(f'end of iter reached! title: {title}')
-                cur_seg = audio[last_timestamp:time_]
+                print(f'stupid items: {value_dict[-2][1]} :: {value_dict[-1][1]}')
+                # takes the miliseconds from last song, and second last. giving us the length of the final song in ms
+                # TODO seems to be off by like 8 ish seconds?
+                time_ = value_dict[-1][1] - value_dict[-2][1]
+                print(time_)
+                cur_seg = audio[-time_:]
                 # uniqueid+count is needed to append a number (cast as str) onto the unique id so the primary key
                 # uniqueness is upheld. so id: hellome -> hellome0, hellome1, hellome2, etc...
-            print(f'len of song going into: {cur_seg.duration_seconds}')
-            self.segment_album_add_to_db(cur, title, author, album, uniqueid + str(count), jpgpath, cur_seg)
+                self.segment_album_add_to_db(cur, title, author, album, uniqueid + str(count), jpgpath, cur_seg)
         print(f'this is the dict: {value_dict}')
         con.commit()
         con.close()
@@ -1432,40 +1492,65 @@ class Download(tk.Frame):
 
     # checks whether this is an album (one long video with timestamps) or not. Calls the apropriate function
     def desc_dict(self, desc):
+        print(f'desc coming in?:')
         # finds all letters, and all inbetween
         old_title = re.findall(r"[a-zA-Z,]+", desc)
         new_title = ' '.join(old_title)
-        timestamp = re.search(r"\d*:\d\d", desc).group()
-        return (new_title, self.timestamp_convert(timestamp))
+        timestamp = re.findall(r"\d*:\d\d", desc)
+        timestamp = "".join(timestamp)
+        return new_title, self.timestamp_convert(timestamp)
 
     def timestamp_convert(self, timestamp):
+        print(f'timestamp! {timestamp}')
         # turn a time like 5:12 -> millisecond conversion
-        split = timestamp.split(":")
-        minutes = int(split[0])
-        seconds = int(split[1])
-        minutes_conv = minutes * 60
-        seconds_total = seconds + minutes_conv
-        miliseconds = seconds_total * 1000
-        return miliseconds
+        time_split = timestamp.split(":")
+        # if the timestamp is "23:10" not "2:12:10"
+        if len(time_split) == 2:
+            minutes = int(time_split[0])
+            seconds = int(time_split[1])
+            minutes_conv = minutes * 60
+            seconds_total = seconds + minutes_conv
+            miliseconds = seconds_total * 1000
+            return miliseconds
+        else:
+            minutes = int(time_split[1])
+            seconds = int(time_split[2])
+            hours = int(time_split[0])
+            hours_conv = hours * 60
+            minutes_conv = minutes + hours_conv
+            to_seconds = minutes_conv * 60
+            seconds_total = seconds + to_seconds
+            print(f'total seconds! {seconds_total}')
+            miliseconds = seconds_total * 1000
+            return miliseconds
+
 
     def descrip_parse(self, descripton):
-        # dict that will be returned from the function !
-        return_dict = {}
+        # list that will be returned from the function !. Consists of tuples. Each tuple has 2 entries. title & time
+        return_list = []
         # list of the input description, spread out by newlines
         total_lines = descripton.split("\n")
         # for each line out of said newlines
         for desc in total_lines:
             try:
                 # set x, y = title, timestamp being returned
-                x, y = self.desc_dict(desc)
-                # add x, y to dictionary
-                return_dict[x] = y
+                # the reason we use a list with nested tuples is because any song that gets hit by regex, and becomes
+                # the same title as something else. like (" 37:06 7. design : 1 " and " 01:07:14 12. design : 2 : 3 "
+                # it will overwrite the entry. And this is not a super uncommon occurance, artists often have multiple
+                # similar names for songs in same album :)
+                title, timestamp = self.desc_dict(desc)
+                # add tuple: (title, timestamp) to list
+                return_list.append((title, timestamp))
                 # attirbute error raised if the regex fails
             except AttributeError:
                 # if regex does fail, just 'skip' over the failiure
                 continue
-        print(f'reutndict; {return_dict}')
-        return return_dict
+            except IndexError:
+                # catches the re.findall() failiure.
+                continue
+
+        print(f'reutndict; {return_list}')
+        return return_list
 
     @staticmethod
     def ms_to_min(ms):
@@ -1631,10 +1716,10 @@ class active_playlist(tk.Frame):
         self.playlist_frame = Frame(self)
         self.playlist_frame.place(x=110, y=100)
         self.song_menu = Menu(self.playlist_frame, tearoff=0)
-        playlist_submenu = Menu(self.song_menu)
-        for playlist_name in self.query_all_playlists(): #inherits last one. all 1 command. want seperate if access quer() with [0]. iterator!
-            playlist_submenu.add_command(label=playlist_name, command=lambda playlist_name=playlist_name: self.add_to_playlist(playlist_name))
-        self.song_menu.add_cascade(label="Add to:", menu=playlist_submenu)
+        self.playlist_submenu = Menu(self.song_menu)
+        for playlist_name in self.query_all_playlists(): # inherits last one. all 1 command. want seperate if access quer() with [0]. iterator!
+            self.playlist_submenu.add_command(label=playlist_name, command=lambda playlist_name=playlist_name: self.add_to_playlist(playlist_name))
+        self.song_menu.add_cascade(label="Add to:", menu=self.playlist_submenu)
         self.song_menu.add_command(label="Play", command=self.play_specifically)
         self.song_menu.add_command(label="Rename", command=lambda: self.popup_rename("x"))
         self.song_menu.add_command(label="Delete", command=self.differ_delete)
