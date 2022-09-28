@@ -459,6 +459,7 @@ class tkinter_main(tk.Tk):
 class music_player:
     def __init__(self, controller=None):
         self.controller = controller
+    startup = True
     # Song is used to hold the Pydub.Audiosegment used to be played.
     song = None
     # Start_time is the beginning of the loop, used in conjuction with now_time to detirmine when music is/isnt playing
@@ -649,6 +650,7 @@ class music_player:
 
     def testsong(self, called_with=None):
         print("TESTSONG CALLED")
+        self.startup = False
         """
         THis portion is needed as a pre-requisite to the main_music_loop() because when resume calls, it needs to pass
         in the new self.song. And when playing for the first time, It needs to define the varibale. So with this
@@ -801,10 +803,11 @@ class music_player:
         #self.print_debug("stop")
 
     def skip_forwards(self, option=None):
+        # if app just launched, add one
+        if self.startup is True:
+            self.song_count += 1
         self.coming_from_loop = False
         # on first time startup basically.
-        if self.song is None:
-            self.song_count += 1
         if self.pause_bool is False:
             # Kills the self.exited.wait() timer
             self.exited.set()
@@ -841,6 +844,9 @@ class music_player:
 
 
     def skip_backwards(self, option=None):
+        # if app just launched, add one
+        if self.startup is True:
+            self.song_count += 1
         self.coming_from_loop = False
         if self.song_count == 1:
             print('can\'t be going back like dat!')
@@ -870,6 +876,10 @@ class music_player:
         return to_return
 
     def resume(self):
+        # if the app is just launched, meaning that main_music_loop hasnt added it's +1, we add it here
+        if self.startup is True:
+            self.song_count += 1
+        print(self.song)
         print("##RESUME##")
         self.exited.clear()
         print(f'index at beginning of resume() {self.song_count}')
