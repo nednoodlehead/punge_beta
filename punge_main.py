@@ -78,7 +78,7 @@ class tkinter_main(tk.Tk):
         self.geometry("1250x750+125+100")
         self.resizable(False, False)
         self.configure(bg="#272c34")
-        self.title("Punge Testing")
+        self.title("Punge")
         self.iconbitmap("./img/punge icon.ico")
         self.option_add('*tearOff', FALSE)
         # Data regarding active music being passed around to controller and currently_playing frame
@@ -802,6 +802,9 @@ class music_player:
 
     def skip_forwards(self, option=None):
         self.coming_from_loop = False
+        # on first time startup basically.
+        if self.song is None:
+            self.song_count += 1
         if self.pause_bool is False:
             # Kills the self.exited.wait() timer
             self.exited.set()
@@ -884,7 +887,6 @@ class music_player:
         print(f'new_time (should be in ms) = {new_time}')
         self.song = self.song[new_time:]
         print(f'self.song len() : {self.song.duration_seconds}')
-        print(f'main_part (resume): {type(self.playback)}')
         self.coming_from_loop = False
         self.testsong("yella")
         print(f'index at end of resume() {self.song_count}')
@@ -1293,16 +1295,15 @@ class Download(tk.Frame):
 
     # whole functio needs rework. push all the fixing stuff into new function for name convention
     def prep_and_execute_single(self, author, title, album, uniqueid):
-        vid_author = self.difference_author_title(author, title)[0],
-        vid_author = ''.join(vid_author)
+        old_vid_author = self.difference_author_title(author, title)[0],
+        vid_author = ''.join(old_vid_author)
         vid_title = self.difference_author_title(author, title)[1]
         print(f'should look normal: {vid_title}')
         savelocmp3 = self.file_extension_change_mp3(author, title, uniqueid)
         savelocjpg = self.file_extension_change_jpg(author, title, uniqueid)
         self.single_add_to_db(vid_author, vid_title, savelocjpg, savelocmp3, album, uniqueid)
 
-
-    def single_add_to_db(self, author, title, savelocjpg, savelocmp3, album,  uniqueid):
+    def single_add_to_db(self, title, author, savelocjpg, savelocmp3, album,  uniqueid):
         con = sqlite3.connect("./MAINPLAYLIST.sqlite")
         cur = con.cursor()
         print(f'auth: {author} | title: {title} | album: {album} | jpg: ##{savelocjpg}## | mp3: @@{savelocmp3}@@ ')
@@ -2111,24 +2112,24 @@ class AudioController:
                 self.volume = 0
                 interface.SetMasterVolume(self.volume, None)
 def volume_slider_controller(event):
-    audio_controller = AudioController("python.exe") #will need to be punge.exe
+    audio_controller = AudioController("Punge.exe") #will need to be punge.exe
     audio_controller.set_volume(float(event))
     audio_controller.process_volume()
 
 
 def volume_mute():
-    audio_control = AudioController("python.exe")
+    audio_control = AudioController("Punge.exe")
     audio_control.set_volume(0)
     audio_control.process_volume()
 
 
 def static_increment_bind(extra=None):
-    audiocontroller = AudioController("python.exe")
+    audiocontroller = AudioController("Punge.exe")
     audiocontroller.increment_volume("ok")
 
 
 def static_decrease_bind(extra=None):
-    audiocontroller = AudioController("python.exe")
+    audiocontroller = AudioController("Punge.exe")
     audiocontroller.decrease_volume("ok")
 
 
